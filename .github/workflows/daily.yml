@@ -1,0 +1,64 @@
+name: Daily HistoriCove Video
+
+on:
+  schedule:
+    # Every day at 08:00 UTC (11:00 Istanbul time)
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    # Also allows manual trigger from GitHub
+
+jobs:
+  create-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore YouTube token
+        env:
+          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN }}
+        run: |
+          if [ -n "$YOUTUBE_TOKEN" ]; then
+            echo "$YOUTUBE_TOKEN" | base64 -d > token.pickle
+            echo "YouTube token restored"
+          fi
+
+      - name: Restore client secret
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+        run: |
+          echo "$CLIENT_SECRET_JSON" > client_secret.json
+
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: python main.py
+
+      - name: Save YouTube token
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -f token.pickle ]; then
+            TOKEN_B64=$(base64 -w 0 token.pickle)
+            gh secret set YOUTUBE_TOKEN --body "$TOKEN_B64"
+            echo "YouTube token saved"
+          fi
