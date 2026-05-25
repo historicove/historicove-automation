@@ -6,7 +6,6 @@ import requests
 import subprocess
 from pathlib import Path
 from datetime import datetime
-import google.generativeai as genai
 from elevenlabs.client import ElevenLabs
 from elevenlabs import save
 from google.oauth2.credentials import Credentials
@@ -35,10 +34,9 @@ HISTORICAL_FIGURES = [
 
 def generate_story():
     print("Generating historical story with Gemini...")
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.0-pro")
     figure = random.choice(HISTORICAL_FIGURES)
     today = datetime.now().strftime("%B %d, %Y")
+
     prompt = f"""You are a master historical storyteller for HistoriCove TV on YouTube.
 Write a dramatic cinematic narrative about: {figure}
 
@@ -55,12 +53,19 @@ After all scenes add:
 ---META---
 VIDEO_TITLE: [SEO title max 60 chars with person name]
 VIDEO_DESCRIPTION: [300 word description with keywords]
-VIDEO_TAGS: history,documentary,ancient history,{figure},[16 more tags]
-VIDEO_HASHTAGS: #HistoryDocumentary #AncientHistory #HistoriCoveTV #History
+VIDEO_TAGS: history,documentary,ancient history,{figure},historical documentary,ancient civilization,world history,epic history,historical figures,biography,ancient world,empire,conqueror,warrior,legend,historical drama,untold history,history channel,historicove,mysteries of history
+VIDEO_HASHTAGS: #HistoryDocumentary #AncientHistory #HistoriCoveTV #History #Documentary #AncientWorld #HistoricalFigures #EpicHistory
 ---END_META---"""
 
-    response = model.generate_content(prompt)
-    raw = response.text
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.9, "maxOutputTokens": 8192}
+    }
+    resp = requests.post(url, json=payload, timeout=120)
+    resp.raise_for_status()
+    raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
     scenes = []
     for block in raw.split("---SCENE---")[1:]:
         block = block.split("---END_SCENE---")[0].strip()
@@ -233,7 +238,7 @@ def upload_to_youtube(video_path, story_data):
     description = meta.get("description", "")
     tags = [t.strip() for t in meta.get("tags", "history,documentary").split(",")][:20]
     hashtags = meta.get("hashtags", "#HistoryDocumentary")
-    full_desc = f"{description}\n\n{hashtags}\n\n© HistoriCove TV"
+    full_desc = f"{description}\n\n{hashtags}\n\n© HistoriCove TV — Unlocking the Secrets of Time"
 
     request = youtube.videos().insert(
         part="snippet,status",
