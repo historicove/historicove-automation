@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-from google import genai
+import google.generativeai as genai
 from elevenlabs.client import ElevenLabs
 from elevenlabs import save
 from google.oauth2.credentials import Credentials
@@ -42,7 +42,7 @@ HISTORICAL_FIGURES = [
 # ─── STEP 1: GENERATE STORY ───────────────────────────────────────────────────
 def generate_story():
     print("📜 Generating historical story with Gemini...")
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
     figure = random.choice(HISTORICAL_FIGURES)
     today = datetime.now().strftime("%B %d, %Y")
 
