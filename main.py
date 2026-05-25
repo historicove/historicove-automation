@@ -36,7 +36,7 @@ HISTORICAL_FIGURES = [
 def generate_story():
     print("Generating historical story with Gemini...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-1.5-flash")
     figure = random.choice(HISTORICAL_FIGURES)
     today = datetime.now().strftime("%B %d, %Y")
     prompt = f"""You are a master historical storyteller for HistoriCove TV on YouTube.
