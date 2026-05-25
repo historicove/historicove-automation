@@ -3,7 +3,6 @@ import json
 import time
 import random
 import requests
-import textwrap
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -19,9 +18,9 @@ from googleapiclient.http import MediaFileUpload
 import pickle
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY    = os.environ["GEMINI_API_KEY"]
+GEMINI_API_KEY     = os.environ["GEMINI_API_KEY"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
-PEXELS_API_KEY    = os.environ["PEXELS_API_KEY"]
+PEXELS_API_KEY     = os.environ["PEXELS_API_KEY"]
 
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -43,9 +42,7 @@ HISTORICAL_FIGURES = [
 # ─── STEP 1: GENERATE STORY ───────────────────────────────────────────────────
 def generate_story():
     print("📜 Generating historical story with Gemini...")
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
-
+    client = genai.Client(api_key=GEMINI_API_KEY)
     figure = random.choice(HISTORICAL_FIGURES)
     today = datetime.now().strftime("%B %d, %Y")
 
@@ -87,34 +84,40 @@ VIDEO_TAGS: [tags]
 VIDEO_HASHTAGS: [hashtags]
 ---END_META---"""
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-preview-05-20",
+        contents=prompt
+    )
     raw = response.text
 
-    # Parse scenes
     scenes = []
     scene_blocks = raw.split("---SCENE---")[1:]
     for block in scene_blocks:
         block = block.split("---END_SCENE---")[0].strip()
         scene = {}
-        for line in block.split("\n"):
+        lines = block.split("\n")
+        narration_lines = []
+        in_narration = False
+        for line in lines:
             if line.startswith("SCENE_NUMBER:"):
                 scene["number"] = line.replace("SCENE_NUMBER:", "").strip()
+                in_narration = False
             elif line.startswith("SCENE_TITLE:"):
                 scene["title"] = line.replace("SCENE_TITLE:", "").strip()
+                in_narration = False
             elif line.startswith("NARRATION:"):
-                scene["narration"] = line.replace("NARRATION:", "").strip()
+                narration_lines = [line.replace("NARRATION:", "").strip()]
+                in_narration = True
             elif line.startswith("IMAGE_SEARCH:"):
                 scene["image_search"] = line.replace("IMAGE_SEARCH:", "").strip()
-        if "narration" in scene and len(scene.get("narration","")) < 50:
-            # narration might be multiline
-            idx = block.find("NARRATION:")
-            end = block.find("IMAGE_SEARCH:")
-            if idx != -1 and end != -1:
-                scene["narration"] = block[idx+10:end].strip()
+                in_narration = False
+            elif in_narration and line.strip():
+                narration_lines.append(line.strip())
+        if narration_lines:
+            scene["narration"] = " ".join(narration_lines)
         if scene:
             scenes.append(scene)
 
-    # Parse meta
     meta = {}
     if "---META---" in raw:
         meta_block = raw.split("---META---")[1].split("---END_META---")[0].strip()
@@ -129,8 +132,6 @@ VIDEO_HASHTAGS: [hashtags]
                 meta["hashtags"] = line.replace("VIDEO_HASHTAGS:", "").strip()
 
     print(f"✅ Story generated: {len(scenes)} scenes about {figure}")
-    print(f"   Title: {meta.get('title', 'N/A')}")
-
     return {"figure": figure, "scenes": scenes, "meta": meta}
 
 # ─── STEP 2: FETCH IMAGES FROM PEXELS ─────────────────────────────────────────
@@ -142,39 +143,28 @@ def fetch_images(story_data):
     for i, scene in enumerate(story_data["scenes"]):
         query = scene.get("image_search", f"ancient history {story_data['figure']}")
         url = f"https://api.pexels.com/v1/search?query={query}&per_page=5&orientation=landscape"
-
         try:
             resp = requests.get(url, headers=headers, timeout=15)
-            data = resp.json()
-            photos = data.get("photos", [])
-
+            photos = resp.json().get("photos", [])
             if not photos:
-                # fallback search
-                fallback = f"ancient history monument ruins"
-                url2 = f"https://api.pexels.com/v1/search?query={fallback}&per_page=5&orientation=landscape"
-                resp2 = requests.get(url2, headers=headers, timeout=15)
-                photos = resp2.json().get("photos", [])
-
+                url2 = f"https://api.pexels.com/v1/search?query=ancient history ruins&per_page=5&orientation=landscape"
+                photos = requests.get(url2, headers=headers, timeout=15).json().get("photos", [])
             if photos:
                 photo = random.choice(photos[:3])
                 img_url = photo["src"]["large2x"]
                 img_path = OUTPUT_DIR / f"scene_{i+1:02d}.jpg"
-
                 img_resp = requests.get(img_url, timeout=30)
                 with open(img_path, "wb") as f:
                     f.write(img_resp.content)
                 image_paths.append(str(img_path))
                 print(f"   ✅ Scene {i+1}: image downloaded")
             else:
-                print(f"   ⚠️  Scene {i+1}: no image found, using previous")
                 if image_paths:
                     image_paths.append(image_paths[-1])
-
         except Exception as e:
             print(f"   ❌ Scene {i+1} image error: {e}")
             if image_paths:
                 image_paths.append(image_paths[-1])
-
         time.sleep(0.5)
 
     return image_paths
@@ -184,15 +174,12 @@ def generate_audio(story_data):
     print("🎙️  Generating narration audio with ElevenLabs...")
     client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
     audio_paths = []
-
-    # Use a dramatic male narrator voice
-    VOICE_ID = "pNInz6obpgDQGcFmaJgB"  # Adam - deep, dramatic
+    VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 
     for i, scene in enumerate(story_data["scenes"]):
         narration = scene.get("narration", "")
         if not narration:
             continue
-
         try:
             audio = client.text_to_speech.convert(
                 voice_id=VOICE_ID,
@@ -210,7 +197,6 @@ def generate_audio(story_data):
             audio_paths.append(str(audio_path))
             print(f"   ✅ Scene {i+1}: audio generated")
             time.sleep(1)
-
         except Exception as e:
             print(f"   ❌ Scene {i+1} audio error: {e}")
 
@@ -231,68 +217,40 @@ def get_duration(audio_path):
 # ─── STEP 5: BUILD VIDEO WITH FFMPEG ──────────────────────────────────────────
 def build_video(image_paths, audio_paths, story_data):
     print("🎬 Building video with FFmpeg...")
-
     scene_videos = []
 
     for i, (img, aud) in enumerate(zip(image_paths, audio_paths)):
         if not os.path.exists(img) or not os.path.exists(aud):
             continue
-
         duration = get_duration(aud)
         out = str(OUTPUT_DIR / f"scene_{i+1:02d}.mp4")
-
-        # Ken Burns effect: slow zoom in
         zoom_filter = (
             f"zoompan=z='min(zoom+0.0008,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
             f":d={int(duration*25)}:s=1920x1080:fps=25"
         )
-
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1", "-i", img,
             "-i", aud,
-            "-filter_complex",
-            f"[0:v]{zoom_filter},format=yuv420p[v]",
+            "-filter_complex", f"[0:v]{zoom_filter},format=yuv420p[v]",
             "-map", "[v]", "-map", "1:a",
             "-c:v", "libx264", "-preset", "fast",
             "-c:a", "aac", "-b:a", "192k",
             "-shortest", "-t", str(duration + 0.5),
             out
         ]
-
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             scene_videos.append(out)
             print(f"   ✅ Scene {i+1}: video rendered ({duration:.1f}s)")
         else:
             print(f"   ❌ Scene {i+1}: FFmpeg error")
-            print(result.stderr[-500:])
 
     if not scene_videos:
         raise Exception("No scene videos were created!")
 
-    # Add title card at beginning
-    figure = story_data["figure"]
-    title_text = story_data["meta"].get("title", figure)
-    title_card = str(OUTPUT_DIR / "title_card.mp4")
-
-    title_cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", "color=c=black:s=1920x1080:d=4:r=25",
-        "-filter_complex",
-        f"drawtext=text='{title_text}':fontcolor=white:fontsize=60"
-        f":x=(w-text_w)/2:y=(h-text_h)/2:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "-c:v", "libx264", "-preset", "fast",
-        "-c:a", "aac", "-ar", "44100", "-ac", "2", "-t", "4",
-        title_card
-    ]
-    subprocess.run(title_cmd, capture_output=True)
-
-    # Concatenate all scenes
     concat_list = str(OUTPUT_DIR / "concat_list.txt")
     with open(concat_list, "w") as f:
-        if os.path.exists(title_card):
-            f.write(f"file '{os.path.abspath(title_card)}'\n")
         for v in scene_videos:
             f.write(f"file '{os.path.abspath(v)}'\n")
 
@@ -306,7 +264,6 @@ def build_video(image_paths, audio_paths, story_data):
         final_video
     ]
     result = subprocess.run(concat_cmd, capture_output=True, text=True)
-
     if result.returncode == 0:
         duration = get_duration(final_video)
         print(f"✅ Final video created: {duration/60:.1f} minutes")
@@ -318,34 +275,27 @@ def build_video(image_paths, audio_paths, story_data):
 def get_youtube_service():
     creds = None
     token_path = "token.pickle"
-
     if os.path.exists(token_path):
         with open(token_path, "rb") as f:
             creds = pickle.load(f)
-
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secret.json", SCOPES
-            )
+            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
             creds = flow.run_local_server(port=0)
         with open(token_path, "wb") as f:
             pickle.dump(creds, f)
-
     return build("youtube", "v3", credentials=creds)
 
 def upload_to_youtube(video_path, story_data):
     print("📤 Uploading to YouTube...")
     youtube = get_youtube_service()
-
     meta = story_data["meta"]
     title = meta.get("title", f"The Story of {story_data['figure']}")
     description = meta.get("description", "")
-    tags_str = meta.get("tags", "history,documentary,ancient history")
+    tags_str = meta.get("tags", "history,documentary")
     hashtags = meta.get("hashtags", "#HistoryDocumentary")
-
     tags = [t.strip() for t in tags_str.split(",")][:20]
     full_description = f"{description}\n\n{hashtags}\n\n© HistoriCove TV — Unlocking the Secrets of Time"
 
@@ -354,7 +304,7 @@ def upload_to_youtube(video_path, story_data):
             "title": title[:100],
             "description": full_description[:5000],
             "tags": tags,
-            "categoryId": "27",  # Education
+            "categoryId": "27",
             "defaultLanguage": "en",
         },
         "status": {
@@ -362,78 +312,48 @@ def upload_to_youtube(video_path, story_data):
             "selfDeclaredMadeForKids": False,
         }
     }
-
-    media = MediaFileUpload(
-        video_path,
-        mimetype="video/mp4",
-        resumable=True,
-        chunksize=1024*1024*5
-    )
-
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body=body,
-        media_body=media
-    )
-
+    media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True, chunksize=1024*1024*5)
+    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
             print(f"   Upload progress: {int(status.progress() * 100)}%")
-
     video_id = response["id"]
     print(f"✅ Uploaded! https://www.youtube.com/watch?v={video_id}")
     return video_id
 
-# ─── MAIN PIPELINE ────────────────────────────────────────────────────────────
+# ─── CLEANUP ──────────────────────────────────────────────────────────────────
 def cleanup():
-    """Remove temporary files to save space"""
     for f in OUTPUT_DIR.glob("scene_*.mp4"):
         f.unlink(missing_ok=True)
     for f in OUTPUT_DIR.glob("audio_*.mp3"):
         f.unlink(missing_ok=True)
     for f in OUTPUT_DIR.glob("scene_*.jpg"):
         f.unlink(missing_ok=True)
-    for f in ["title_card.mp4", "concat_list.txt"]:
-        (OUTPUT_DIR / f).unlink(missing_ok=True)
+    (OUTPUT_DIR / "concat_list.txt").unlink(missing_ok=True)
 
+# ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
     print("=" * 60)
     print("🏛️  HistoriCove TV — Daily Video Pipeline")
     print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
-
     try:
-        # Step 1: Story
         story_data = generate_story()
-
-        # Step 2: Images
         image_paths = fetch_images(story_data)
-
-        # Step 3: Audio
         audio_paths = generate_audio(story_data)
-
-        # Align: use only scenes that have both image and audio
         min_scenes = min(len(image_paths), len(audio_paths))
         image_paths = image_paths[:min_scenes]
         audio_paths = audio_paths[:min_scenes]
         story_data["scenes"] = story_data["scenes"][:min_scenes]
-
-        # Step 4: Build video
         final_video = build_video(image_paths, audio_paths, story_data)
-
-        # Step 5: Upload
         video_id = upload_to_youtube(final_video, story_data)
-
-        # Cleanup
         cleanup()
-
         print("\n" + "=" * 60)
         print("✅ Pipeline complete!")
         print(f"   Video: https://www.youtube.com/watch?v={video_id}")
         print("=" * 60)
-
     except Exception as e:
         print(f"\n❌ Pipeline failed: {e}")
         raise
