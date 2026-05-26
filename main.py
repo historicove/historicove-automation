@@ -57,7 +57,7 @@ VIDEO_TAGS: history,documentary,ancient history,{figure},historical documentary,
 VIDEO_HASHTAGS: #HistoryDocumentary #AncientHistory #HistoriCoveTV #History #Documentary #AncientWorld #HistoricalFigures #EpicHistory
 ---END_META---"""
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.9, "maxOutputTokens": 8192}
