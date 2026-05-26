@@ -386,7 +386,7 @@ def generate_narration(text, filename):
         "Content-Type": "application/json"
     }
 
-    voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam - deep authoritative voice
+    voice_id = "JJCR1UICgHnHljtvu5uF"  # Selected documentary voice
 
     data = {
         "text": text,
