@@ -159,30 +159,21 @@ RULES:
 def generate_image(prompt, filename):
     print(f"🎨 Generating image: {Path(filename).name}")
 
-    # Try Gemini Imagen first
+    # Try Pollinations AI (free, no key needed)
     try:
-        from google import genai as genai2
-        from google.genai import types
-
-        client = genai2.Client(api_key=os.environ["GEMINI_API_KEY"])
-        enhanced = f"{prompt}, cinematic masterpiece, dramatic shadows, epic historical art, ultra detailed"
-
-        response = client.models.generate_images(
-            model='imagen-3.0-generate-002',
-            prompt=enhanced,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio="16:9",
-                safety_filter_level="block_only_high",
-            )
-        )
-        img_bytes = response.generated_images[0].image.image_bytes
-        with open(filename, 'wb') as f:
-            f.write(img_bytes)
-        print(f"   ✅ Imagen generated")
-        return True
+        enhanced = f"{prompt}, cinematic oil painting, dramatic lighting, epic historical art, ultra detailed, masterpiece"
+        encoded = requests.utils.quote(enhanced)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=720&nologo=true&enhance=true"
+        resp = requests.get(url, timeout=60)
+        if resp.status_code == 200 and len(resp.content) > 10000:
+            with open(filename, 'wb') as f:
+                f.write(resp.content)
+            print(f"   ✅ Pollinations image generated")
+            return True
+        else:
+            print(f"   ⚠️ Pollinations failed: {resp.status_code}")
     except Exception as e:
-        print(f"   ⚠️ Imagen failed: {e}")
+        print(f"   ⚠️ Pollinations failed: {e}")
 
     # Fallback: Pexels
     try:
