@@ -123,20 +123,8 @@ Return ONLY this exact JSON structure, no other text:
     }},
     {{
       "id": 6,
-      "title": "THE AFTERMATH",
-      "narration": "100-120 words. What happened next. The consequences that rippled through centuries. Surprising historical facts.",
-      "image_prompt": "..."
-    }},
-    {{
-      "id": 7,
       "title": "THE LEGACY",
-      "narration": "80-100 words. Why this matters TODAY. End with a powerful question that makes viewers think and comment.",
-      "image_prompt": "..."
-    }},
-    {{
-      "id": 8,
-      "title": "OUTRO",
-      "narration": "30-40 words. Powerful closing line. Subscribe call to action. Tease next video with one mysterious sentence.",
+      "narration": "100-120 words. What happened next. Why this matters TODAY. End with a powerful question that makes viewers think and comment. Subscribe call to action.",
       "image_prompt": "..."
     }}
   ]
@@ -385,34 +373,34 @@ def image_to_video_kling(image_path, scene_prompt, output_path, scene_num):
 
 # ─── STEP 5: LOOP VIDEO TO AUDIO LENGTH ───────────────────────────────────────
 def loop_video_to_audio(video_path, audio_path, output_path):
-    """Loop 5s Kling video to match full narration length with crossfade"""
+    """Loop 5s Kling video to match full narration length"""
+    # Get audio duration
     result = subprocess.run([
         'ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
         '-of', 'csv=p=0', str(audio_path)
     ], capture_output=True, text=True)
     duration = float(result.stdout.strip())
 
-    # Color grade filter for cinematic look
-    color_grade = (
-        "eq=contrast=1.08:brightness=-0.03:saturation=0.88,"
-        "curves=r='0/0 0.3/0.26 0.7/0.67 1/0.92':"
-        "g='0/0 0.3/0.29 0.7/0.68 1/0.93':"
-        "b='0/0.04 0.3/0.31 0.7/0.70 1/0.97'"
-    )
+    color_grade = "eq=contrast=1.08:brightness=-0.03:saturation=0.88"
 
     cmd = [
         'ffmpeg', '-y',
         '-stream_loop', '-1',
         '-i', str(video_path),
         '-i', str(audio_path),
-        '-filter_complex', f'[0:v]{color_grade},format=yuv420p[v]',
-        '-map', '[v]', '-map', '1:a',
+        '-filter_complex',
+        f'[0:v]{color_grade},format=yuv420p[v];[1:a]aformat=sample_rates=44100:channel_layouts=stereo[a]',
+        '-map', '[v]',
+        '-map', '[a]',
         '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
         '-c:a', 'aac', '-b:a', '192k',
         '-t', str(duration),
+        '-shortest',
         str(output_path)
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"   ⚠️ Loop error: {result.stderr[-200:]}")
     return result.returncode == 0
 
 # ─── STEP 6: KEN BURNS FALLBACK ───────────────────────────────────────────────
