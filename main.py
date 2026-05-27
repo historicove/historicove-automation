@@ -188,7 +188,82 @@ def fetch_pexels(prompt, filename):
         pass
     return False
 
-def image_to_video(image_path, motion_prompt, output_path):
+REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
+
+def image_to_video_replicate(image_path, motion_prompt, output_path):
+    """Use Replicate Wan 2.7 for image to video - free credits available"""
+    try:
+        # Convert image to base64 data URL
+        with open(image_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+        img_data_url = "data:image/jpeg;base64," + img_b64
+
+        headers = {
+            "Authorization": "Bearer " + REPLICATE_API_TOKEN,
+            "Content-Type": "application/json",
+            "Prefer": "wait"
+        }
+
+        # Use Wan 2.5 image to video model
+        payload = {
+            "version": "wan-ai/wan2.5-i2v-480p",
+            "input": {
+                "image": img_data_url,
+                "prompt": motion_prompt + " Cinematic. Historically authentic. Epic atmosphere.",
+                "negative_prompt": "modern, text, watermark, distortion, low quality",
+                "num_frames": 81,
+                "fps": 16,
+                "guidance_scale": 5.0,
+                "num_inference_steps": 30
+            }
+        }
+
+        resp = requests.post(
+            "https://api.replicate.com/v1/predictions",
+            headers=headers,
+            json=payload,
+            timeout=300
+        )
+
+        if resp.status_code not in [200, 201]:
+            print("      Replicate error: " + str(resp.status_code))
+            return False
+
+        result = resp.json()
+        prediction_id = result.get("id")
+
+        # If not completed yet, poll
+        if result.get("status") not in ["succeeded", "failed"]:
+            for _ in range(40):
+                time.sleep(10)
+                poll = requests.get(
+                    "https://api.replicate.com/v1/predictions/" + prediction_id,
+                    headers=headers
+                )
+                result = poll.json()
+                status = result.get("status", "")
+                print("      Replicate status: " + status)
+                if status == "succeeded":
+                    break
+                elif status == "failed":
+                    print("      Replicate failed: " + str(result.get("error")))
+                    return False
+
+        output = result.get("output")
+        if output:
+            video_url = output if isinstance(output, str) else output[0]
+            vr = requests.get(video_url, timeout=60)
+            with open(output_path, "wb") as f:
+                f.write(vr.content)
+            return True
+
+    except Exception as e:
+        print("      Replicate exception: " + str(e))
+
+    return False
+
+def image_to_video_kling(image_path, motion_prompt, output_path):
+    """Kling video generation as fallback"""
     with open(image_path, "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode("utf-8")
     payload = {
@@ -220,6 +295,16 @@ def image_to_video(image_path, motion_prompt, output_path):
         elif data.get("task_status") == "failed":
             return False
     return False
+
+def image_to_video(image_path, motion_prompt, output_path):
+    """Try Replicate first, fallback to Kling"""
+    if REPLICATE_API_TOKEN:
+        print("      Using Replicate Wan 2.7...")
+        ok = image_to_video_replicate(image_path, motion_prompt, output_path)
+        if ok:
+            return True
+        print("      Replicate failed, trying Kling...")
+    return image_to_video_kling(image_path, motion_prompt, output_path)
 
 def generate_narration(text, filename):
     h = {"xi-api-key": ELEVENLABS_API_KEY.strip(), "Content-Type": "application/json"}
