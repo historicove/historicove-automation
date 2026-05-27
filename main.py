@@ -59,14 +59,96 @@ def generate_script():
     topic = random.choice(TOPICS)
     print(f"   Topic: {topic}")
 
-    prompt = f"""You are the world's best YouTube scriptwriter for epic historical documentaries.
+    # Step 1: Get story and narrations
+    prompt_story = f"""Write a YouTube historical documentary script about: "{topic}"
 
-Write a complete professional script about: "{topic}"
+Return ONLY this JSON:
+{{
+  "title": "Dramatic YouTube title under 60 chars",
+  "description": "SEO YouTube description 200 words",
+  "tags": ["history","documentary","ancient","war","empire","conquest","kings","battle","legend","mystery","untold","facts","historical","epic","civilization","rulers","warriors","secrets","power","death"],
+  "thumbnail_text": "6 SHOCKING WORDS ALL CAPS",
+  "thumbnail_subtext": "THE UNTOLD STORY",
+  "scenes": [
+    {{"id":1,"title":"HOOK","narration":"90 words. Start mid-action. Most shocking moment. Present tense. No welcome."}},
+    {{"id":2,"title":"THE WORLD","narration":"90 words. Paint the world. Show the stakes."}},
+    {{"id":3,"title":"THE RISE","narration":"90 words. Turning point. Rising tension. Cliffhanger."}},
+    {{"id":4,"title":"THE CONFLICT","narration":"90 words. Maximum drama. Battle or betrayal. Visceral."}},
+    {{"id":5,"title":"THE CLIMAX","narration":"90 words. Peak moment. Decision that changed history."}},
+    {{"id":6,"title":"THE LEGACY","narration":"90 words. Why this matters today. Powerful question. Subscribe CTA."}}
+  ]
+}}
+Return ONLY JSON. No markdown."""
 
-Each scene needs exactly 18 unique shot descriptions. Each shot = 1 image + 1 five-second video.
-18 shots × 5 seconds = 90 seconds of video per scene (matching the narration length).
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
 
-Return ONLY this valid JSON:
+    resp1 = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json={
+        "model": "claude-opus-4-5",
+        "max_tokens": 3000,
+        "messages": [{"role": "user", "content": prompt_story}]
+    })
+    resp1.raise_for_status()
+    text1 = resp1.json()["content"][0]["text"].strip()
+    start = text1.find("{"); end = text1.rfind("}") + 1
+    script = json.loads(text1[start:end])
+    print(f"   ✅ Story: '{script['title']}'")
+
+    # Step 2: Generate 18 shot prompts for each scene
+    for scene in script["scenes"]:
+        prompt_shots = f"""For a YouTube historical documentary about "{topic}", scene: "{scene['title']}"
+Narration: "{scene['narration'][:100]}..."
+
+Generate exactly 18 unique shot descriptions. Each shot = 1 image for 5 seconds of video.
+
+Return ONLY this JSON array (18 items):
+[
+  {{"id":"{scene['id']}-01","img":"Photorealistic oil painting. [Specific scene]. Rembrandt lighting. Authentic period. 16:9.","mov":"Slow push forward. Dust in golden light."}},
+  {{"id":"{scene['id']}-02","img":"Photorealistic oil painting. [Different angle]. Close emotion. Deep shadows.","mov":"Slow pan. Atmosphere."}},
+  ... (18 total, all unique, all specific to {topic} scene {scene['title']})
+]
+Return ONLY the JSON array. No markdown. Exactly 18 items."""
+
+        resp2 = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json={
+            "model": "claude-opus-4-5",
+            "max_tokens": 4000,
+            "messages": [{"role": "user", "content": prompt_shots}]
+        })
+        resp2.raise_for_status()
+        text2 = resp2.json()["content"][0]["text"].strip()
+        start2 = text2.find("["); end2 = text2.rfind("]") + 1
+        if start2 >= 0 and end2 > start2:
+            try:
+                shots = json.loads(text2[start2:end2])
+                scene["shots"] = shots[:18]
+                print(f"   ✅ Scene {scene['id']} shots: {len(scene['shots'])}")
+            except:
+                # Fallback: generate basic shots
+                scene["shots"] = [
+                    {"id": f"{scene['id']}-{k+1:02d}",
+                     "img": f"Photorealistic oil painting. {topic} - {scene['title']} moment {k+1}. Rembrandt lighting. Epic authentic historical scene. 16:9.",
+                     "mov": ["Slow push forward.", "Slow pan left.", "Camera rises.", "Slow zoom in.", "Gentle drift.", "Pull back reveal.", "Sweeping pan.", "Push into scene.", "Slow orbit.", "Dynamic movement."][k % 10]}
+                    for k in range(18)
+                ]
+                print(f"   ⚠️ Scene {scene['id']}: used fallback shots")
+        else:
+            scene["shots"] = [
+                {"id": f"{scene['id']}-{k+1:02d}",
+                 "img": f"Photorealistic oil painting. {topic} - {scene['title']} moment {k+1}. Dramatic Rembrandt lighting. Authentic historical scene. Epic atmosphere. 16:9.",
+                 "mov": ["Slow push forward.", "Slow pan.", "Camera rises.", "Slow zoom.", "Drift right.", "Pull back.", "Sweep.", "Push in.", "Orbit.", "Wide reveal."][k % 10]}
+                for k in range(18)
+            ]
+
+        time.sleep(1)
+
+    total = sum(len(s.get("shots", [])) for s in script["scenes"])
+    print(f"   ✅ Total shots: {total}")
+    return script
+
+    prompt = f"""dummy"""  # Never reached
 {{
   "title": "Dramatic YouTube title under 60 chars",
   "description": "SEO YouTube description 200 words with keywords",
@@ -221,41 +303,7 @@ Return ONLY this valid JSON:
         {{"id":"6-15","img":"Photorealistic oil painting. [Question visualized]. What if different choice made.","mov":"Contemplative slow movement."}},
         {{"id":"6-16","img":"Photorealistic oil painting. [Sunset over historical site]. End of story. Beautiful.","mov":"Golden hour slow drift."}},
         {{"id":"6-17","img":"Photorealistic oil painting. [Stars over ancient landscape]. Time passing.","mov":"Slow rise to stars."}},
-        {{"id":"6-18","img":"Photorealistic oil painting. [Final iconic image - most memorable of whole video]. Grand.","mov":"Epic slow pull back to wide."}}
-      ]
-    }}
-  ]
-}}
-
-CRITICAL: Replace ALL [...] placeholders with SPECIFIC content about "{topic}".
-Every shot must be unique and different from all others.
-Return ONLY the JSON. No markdown. No explanation."""
-
-    headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    data = {
-        "model": "claude-opus-4-5",
-        "max_tokens": 8000,
-        "messages": [{"role": "user", "content": prompt}]
-    }
-
-    resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=data)
-    resp.raise_for_status()
-
-    text = resp.json()["content"][0]["text"].strip()
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    if start >= 0 and end > start:
-        text = text[start:end]
-
-    script = json.loads(text)
-    total = sum(len(s.get("shots", [])) for s in script["scenes"])
-    print(f"   ✅ Script: '{script['title']}'")
-    print(f"   Total shots: {total}")
-    return script
+        {{"id":"6-18","img":"Photorealistic oil painting. Final iconic image of story. Grand. Epic. Memorable.","mov":"Epic slow pull back to wide."}}
 
 # ─── KLING TOKEN ───────────────────────────────────────────────────────────────
 def get_kling_token():
