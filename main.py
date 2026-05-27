@@ -391,35 +391,55 @@ def image_to_video_kling(image_path, scene_prompt, output_path, scene_num):
 
 # ─── STEP 5: LOOP VIDEO TO AUDIO LENGTH ───────────────────────────────────────
 def loop_video_to_audio(video_path, audio_path, output_path):
-    """Loop 5s Kling video to match full narration length"""
+    """Loop 5s Kling video to match full narration length and merge audio"""
     # Get audio duration
     result = subprocess.run([
         'ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
         '-of', 'csv=p=0', str(audio_path)
     ], capture_output=True, text=True)
     duration = float(result.stdout.strip())
+    print(f"   Audio duration: {duration:.1f}s")
 
     color_grade = "eq=contrast=1.08:brightness=-0.03:saturation=0.88"
 
-    cmd = [
+    # Step 1: Loop video only (no audio from Kling)
+    looped_video = str(output_path).replace('.mp4', '_looped.mp4')
+    cmd1 = [
         'ffmpeg', '-y',
         '-stream_loop', '-1',
         '-i', str(video_path),
-        '-i', str(audio_path),
-        '-filter_complex',
-        f'[0:v]{color_grade},format=yuv420p[v];[1:a]aformat=sample_rates=44100:channel_layouts=stereo[a]',
-        '-map', '[v]',
-        '-map', '[a]',
-        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
-        '-c:a', 'aac', '-b:a', '192k',
         '-t', str(duration),
+        '-vf', f'{color_grade},format=yuv420p',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
+        '-an',
+        looped_video
+    ]
+    r1 = subprocess.run(cmd1, capture_output=True, text=True)
+    if r1.returncode != 0:
+        print(f"   ⚠️ Loop step 1 error: {r1.stderr[-200:]}")
+        return False
+
+    # Step 2: Merge looped video with audio
+    cmd2 = [
+        'ffmpeg', '-y',
+        '-i', looped_video,
+        '-i', str(audio_path),
+        '-c:v', 'copy',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
         '-shortest',
         str(output_path)
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"   ⚠️ Loop error: {result.stderr[-200:]}")
-    return result.returncode == 0
+    r2 = subprocess.run(cmd2, capture_output=True, text=True)
+    if r2.returncode != 0:
+        print(f"   ⚠️ Loop step 2 error: {r2.stderr[-200:]}")
+        return False
+
+    # Cleanup temp file
+    Path(looped_video).unlink(missing_ok=True)
+    print(f"   ✅ Video + audio merged successfully")
+    return True
 
 # ─── STEP 6: KEN BURNS FALLBACK ───────────────────────────────────────────────
 def ken_burns_fallback(image_path, audio_path, output_path, scene_num):
