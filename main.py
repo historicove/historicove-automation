@@ -137,7 +137,7 @@ Return ONLY this exact JSON structure, no other text:
     }
     data = {
         "model": "claude-opus-4-5",
-        "max_tokens": 4000,
+        "max_tokens": 6000,
         "messages": [{"role": "user", "content": prompt}]
     }
 
@@ -145,13 +145,31 @@ Return ONLY this exact JSON structure, no other text:
     resp.raise_for_status()
 
     text = resp.json()["content"][0]["text"].strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-    text = text.strip()
 
-    script = json.loads(text)
+    # Clean JSON
+    if "```" in text:
+        parts = text.split("```")
+        for part in parts:
+            if part.startswith("json"):
+                text = part[4:].strip()
+                break
+            elif "{" in part:
+                text = part.strip()
+                break
+
+    # Find JSON object
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start >= 0 and end > start:
+        text = text[start:end]
+
+    try:
+        script = json.loads(text)
+    except json.JSONDecodeError as e:
+        print(f"   ⚠️ JSON error: {e}")
+        # Try to fix common issues
+        text = text.replace('\n', ' ').replace('\r', '')
+        script = json.loads(text)
     print(f"   ✅ Script: '{script['title']}'")
     print(f"   Scenes: {len(script['scenes'])}")
     return script
