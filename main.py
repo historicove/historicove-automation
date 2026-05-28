@@ -88,23 +88,45 @@ def generate_script():
     print("   Topic: " + topic)
 
     # Step 1: Story + narrations
+    # Step 1: Get title, tags, thumbnail + short narrations
     p1 = ('Write a YouTube historical documentary script about: "' + topic + '"\n\n'
-          'IMPORTANT: Each narration must be AT LEAST 200 words for a 10-minute video.\n\n'
-          'Return ONLY this JSON:\n'
+          'Return ONLY this JSON (keep narrations under 50 words each as placeholders):\n'
           '{"title":"Dramatic title under 60 chars","description":"SEO description 200 words","tags":["history","documentary","ancient","war","empire","conquest","kings","battle","legend","mystery","untold","facts","historical","epic","civilization","rulers","warriors","secrets","power","death"],"thumbnail_text":"6 SHOCKING WORDS CAPS","thumbnail_subtext":"THE UNTOLD STORY","scenes":['
-          '{"id":1,"title":"HOOK","narration":"WRITE 200+ WORDS. Start mid-action. Most shocking moment. Present tense. No welcome. Vivid sensory details. Real historical facts. Drop viewer into action."},'
-          '{"id":2,"title":"THE WORLD","narration":"WRITE 200+ WORDS. Paint the world vividly. Show the stakes. Real historical context. Sensory details. Atmosphere."},'
-          '{"id":3,"title":"THE RISE","narration":"WRITE 200+ WORDS. Turning point. Rising tension. Real dates and names. Build suspense. Cliffhanger ending."},'
-          '{"id":4,"title":"THE CONFLICT","narration":"WRITE 200+ WORDS. Maximum drama. Battle or betrayal. Visceral real details. Emotional. Shocking facts."},'
-          '{"id":5,"title":"THE CLIMAX","narration":"WRITE 200+ WORDS. Peak moment. Decision that changed history. Maximum emotional impact. Real consequences."},'
-          '{"id":6,"title":"THE LEGACY","narration":"WRITE 200+ WORDS. Why this matters today. Surprising legacy facts. Connection to modern world. Powerful question. Subscribe CTA."}]}'
-          '\nReturn ONLY JSON. No markdown. Each narration MUST be 200+ words.')
+          '{"id":1,"title":"HOOK","narration":"placeholder"},'
+          '{"id":2,"title":"THE WORLD","narration":"placeholder"},'
+          '{"id":3,"title":"THE RISE","narration":"placeholder"},'
+          '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
+          '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
+          '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
+          '\nReturn ONLY JSON. No markdown.')
 
-    text1 = claude_request(p1, max_tokens=4000)
+    text1 = claude_request(p1, max_tokens=1500)
     script = parse_json(text1)
     if not script:
         raise ValueError("Failed to parse script JSON")
     print("   Script: " + script["title"])
+
+    # Step 1b: Get full narrations for each scene separately
+    scene_titles = ["HOOK", "THE WORLD", "THE RISE", "THE CONFLICT", "THE CLIMAX", "THE LEGACY"]
+    scene_instructions = [
+        "Start mid-action. Most shocking moment. Present tense. No welcome. Drop viewer into action immediately.",
+        "Paint the world vividly. Show the stakes. Real historical context. Atmosphere and sensory details.",
+        "Turning point. Rising tension. Real dates and names. Build suspense. Cliffhanger ending.",
+        "Maximum drama. Battle or betrayal. Visceral real details. Emotional. Shocking historical facts.",
+        "Peak moment. Decision that changed history. Maximum emotional impact. Real consequences.",
+        "Why this matters today. Surprising legacy facts. Connection to modern world. Powerful question. Subscribe CTA."
+    ]
+
+    for i, scene in enumerate(script["scenes"]):
+        p_narr = ('Write a 200-word narration for a YouTube historical documentary.\n'
+                  'Topic: "' + topic + '"\n'
+                  'Scene: "' + scene_titles[i] + '"\n'
+                  'Instructions: ' + scene_instructions[i] + '\n\n'
+                  'Write ONLY the narration text. No JSON. No titles. Just the 200-word narration.')
+        narr_text = claude_request(p_narr, max_tokens=600)
+        scene["narration"] = narr_text.strip()
+        print("   Narration " + str(i+1) + ": " + str(len(narr_text.split())) + " words")
+        time.sleep(1)
 
     # Step 2: 18 shots per scene
     for scene in script["scenes"]:
