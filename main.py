@@ -619,42 +619,60 @@ def create_title_card(title):
     ti = OUTPUT_DIR / "title_card.jpg"
     img.save(ti, "JPEG", quality=95)
     tv = OUTPUT_DIR / "title_card.mp4"
-    subprocess.run(["ffmpeg", "-y", "-loop", "1", "-i", str(ti), "-t", "4", "-vf", "fade=in:0:25,format=yuv420p", "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-r", "25", "-an", str(tv)], capture_output=True)
+    # Create title card WITH silent audio so concat works properly
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", str(ti),
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-t", "4",
+        "-vf", "fade=in:0:25,format=yuv420p",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:a", "aac", "-b:a", "192k",
+        "-r", "25", "-shortest",
+        str(tv)
+    ], capture_output=True)
     return tv
 
 def merge_final(scene_videos, output_path):
     print("Merging " + str(len(scene_videos)) + " scenes...")
+
+    # First verify each scene has audio
+    for i, vp in enumerate(scene_videos):
+        probe = subprocess.run([
+            "ffprobe", "-v", "quiet", "-show_streams",
+            "-select_streams", "a", str(vp)
+        ], capture_output=True, text=True)
+        has_audio = "codec_type=audio" in probe.stdout
+        print("   Scene " + str(i) + " audio: " + ("✅" if has_audio else "❌ MISSING"))
+
     cf = OUTPUT_DIR / "final_concat.txt"
     with open(cf, "w") as f:
         for vp in scene_videos:
             f.write("file '" + str(Path(vp).absolute()) + "'\n")
 
-    # Use filter_complex to handle mixed audio streams properly
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0", "-i", str(cf),
         "-c:v", "libx264", "-preset", "fast", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
-        "-map", "0:v:0",
-        "-map", "0:a?",
         str(output_path)
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode == 0:
         size = Path(output_path).stat().st_size / (1024*1024)
         print("   Final video: " + str(round(size,1)) + " MB")
-        # Verify audio exists
+        # Verify final audio
         probe = subprocess.run([
             "ffprobe", "-v", "quiet", "-show_streams",
             "-select_streams", "a", str(output_path)
         ], capture_output=True, text=True)
         if "codec_type=audio" in probe.stdout:
-            print("   ✅ Audio confirmed in final video")
+            print("   ✅ Audio confirmed in final video!")
         else:
-            print("   ⚠️ No audio in final video!")
+            print("   ❌ No audio in final video!")
         return True
-    print("   Merge failed: " + r.stderr[-200:])
+    print("   Merge failed: " + r.stderr[-300:])
     return False
 
 def upload_youtube(video_path, thumb_path, script):
