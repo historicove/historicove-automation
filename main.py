@@ -296,15 +296,191 @@ def image_to_video_kling(image_path, motion_prompt, output_path):
             return False
     return False
 
-def image_to_video(image_path, motion_prompt, output_path):
-    """Try Replicate first, fallback to Kling"""
-    if REPLICATE_API_TOKEN:
-        print("      Using Replicate Wan 2.7...")
-        ok = image_to_video_replicate(image_path, motion_prompt, output_path)
-        if ok:
-            return True
-        print("      Replicate failed, trying Kling...")
-    return image_to_video_kling(image_path, motion_prompt, output_path)
+def ken_burns_video(image_path, output_path, shot_num, duration=5):
+    """Create 5-second cinematic video - 18 unique effects, no repeat"""
+    frames = duration * 25  # 125 frames at 25fps
+    effects = [
+        # Zoom in slow
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Pan right
+        f"scale=8000:-1,zoompan=z='1.3':x='if(lte(on,1),0,min(x+2,iw*(1-1/zoom)))':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Zoom out slow
+        f"scale=8000:-1,zoompan=z='if(lte(on,1),1.5,max(1.001,zoom-0.001))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Pan left
+        f"scale=8000:-1,zoompan=z='1.3':x='if(lte(on,1),iw*0.3,max(0,x-1.5))':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Pan up
+        f"scale=8000:-1,zoompan=z='1.3':x='iw/2-(iw/zoom/2)':y='if(lte(on,1),ih*0.3,max(0,y-1))':d={frames}:s=1920x1080",
+        # Pan down
+        f"scale=8000:-1,zoompan=z='1.3':x='iw/2-(iw/zoom/2)':y='if(lte(on,1),0,min(y+1,ih*(1-1/zoom)))':d={frames}:s=1920x1080",
+        # Zoom in top-left
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='0':y='0':d={frames}:s=1920x1080",
+        # Zoom in top-right
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='iw*(1-1/zoom)':y='0':d={frames}:s=1920x1080",
+        # Zoom in bottom-left
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='0':y='ih*(1-1/zoom)':d={frames}:s=1920x1080",
+        # Zoom in bottom-right
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='iw*(1-1/zoom)':y='ih*(1-1/zoom)':d={frames}:s=1920x1080",
+        # Diagonal pan top-left to bottom-right
+        f"scale=8000:-1,zoompan=z='1.3':x='if(lte(on,1),0,min(x+1.5,iw*(1-1/zoom)))':y='if(lte(on,1),0,min(y+1,ih*(1-1/zoom)))':d={frames}:s=1920x1080",
+        # Diagonal pan top-right to bottom-left
+        f"scale=8000:-1,zoompan=z='1.3':x='if(lte(on,1),iw*0.3,max(0,x-1.5))':y='if(lte(on,1),0,min(y+1,ih*(1-1/zoom)))':d={frames}:s=1920x1080",
+        # Slow zoom in center with slight pan right
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0004,1.3)':x='if(lte(on,1),iw/2-(iw/zoom/2),min(x+0.5,iw*(1-1/zoom)))':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Slow zoom out with pan left
+        f"scale=8000:-1,zoompan=z='if(lte(on,1),1.4,max(1.001,zoom-0.0008))':x='if(lte(on,1),iw*0.2,max(0,x-0.5))':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Zoom in from bottom center
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='iw/2-(iw/zoom/2)':y='ih*(1-1/zoom)':d={frames}:s=1920x1080",
+        # Zoom in from top center
+        f"scale=8000:-1,zoompan=z='min(zoom+0.0006,1.4)':x='iw/2-(iw/zoom/2)':y='0':d={frames}:s=1920x1080",
+        # Wide slow pan left to right
+        f"scale=8000:-1,zoompan=z='1.2':x='if(lte(on,1),0,min(x+1.2,iw*(1-1/zoom)))':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+        # Dramatic zoom in fast
+        f"scale=8000:-1,zoompan=z='min(zoom+0.001,1.6)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080",
+    ]
+
+    effect = effects[shot_num % 18]
+    color = "eq=contrast=1.08:brightness=-0.03:saturation=0.85"
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", str(image_path),
+        "-t", str(duration),
+        "-vf", effect + "," + color + ",format=yuv420p",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-r", "25", "-an",
+        str(output_path)
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print("      Ken Burns error: " + r.stderr[-100:])
+    return r.returncode == 0
+
+def search_pexels_video(query, output_path):
+    """Search and download relevant video from Pexels"""
+    try:
+        # Map historical keywords to Pexels-friendly search terms
+        keyword_map = {
+            "battle": "ancient battle war soldiers",
+            "war": "ancient warriors soldiers",
+            "king": "medieval castle throne",
+            "emperor": "ancient palace throne room",
+            "army": "soldiers marching medieval",
+            "sword": "medieval sword warrior",
+            "castle": "medieval castle fortress",
+            "rome": "ancient rome columns",
+            "egypt": "ancient egypt desert pyramid",
+            "horse": "horses galloping epic",
+            "fire": "fire flames dramatic",
+            "crowd": "medieval crowd people",
+            "night": "night fire torches dark",
+            "mountain": "epic mountain landscape",
+            "desert": "desert landscape dramatic",
+            "ocean": "ocean waves dramatic",
+            "death": "dramatic dark atmospheric",
+            "victory": "epic celebration crowd",
+            "throne": "throne room palace medieval",
+            "prayer": "ancient religious ceremony",
+        }
+
+        # Find best keyword match
+        query_lower = query.lower()
+        search_term = "ancient historical cinematic"
+        for key, value in keyword_map.items():
+            if key in query_lower:
+                search_term = value
+                break
+
+        headers = {"Authorization": PEXELS_API_KEY}
+        params = {
+            "query": search_term,
+            "per_page": 10,
+            "orientation": "landscape",
+            "size": "medium"
+        }
+        resp = requests.get(
+            "https://api.pexels.com/videos/search",
+            headers=headers,
+            params=params,
+            timeout=30
+        )
+
+        if resp.status_code != 200:
+            return False
+
+        videos = resp.json().get("videos", [])
+        if not videos:
+            # Try generic search
+            params["query"] = "cinematic nature landscape epic"
+            resp = requests.get("https://api.pexels.com/videos/search", headers=headers, params=params)
+            videos = resp.json().get("videos", [])
+
+        if not videos:
+            return False
+
+        # Pick random video from top 5
+        video = random.choice(videos[:5])
+
+        # Get HD video file
+        video_files = video.get("video_files", [])
+        # Sort by resolution and pick best
+        hd_files = [f for f in video_files if f.get("width", 0) >= 1280]
+        if not hd_files:
+            hd_files = video_files
+
+        if not hd_files:
+            return False
+
+        best_file = sorted(hd_files, key=lambda x: x.get("width", 0), reverse=True)[0]
+        video_url = best_file.get("link")
+
+        if not video_url:
+            return False
+
+        # Download video
+        vr = requests.get(video_url, timeout=60, stream=True)
+        with open(output_path, "wb") as f:
+            for chunk in vr.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        print("      ✅ Pexels video: " + search_term)
+        return True
+
+    except Exception as e:
+        print("      Pexels video error: " + str(e))
+        return False
+
+def trim_video_to_duration(input_path, output_path, duration=5):
+    """Trim or loop video to exact duration"""
+    vid_dur = get_duration(input_path)
+
+    if vid_dur >= duration:
+        # Trim to duration
+        cmd = [
+            "ffmpeg", "-y", "-i", str(input_path),
+            "-t", str(duration),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-an",
+            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+            str(output_path)
+        ]
+    else:
+        # Loop to duration
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", str(input_path),
+            "-t", str(duration),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-an",
+            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+            str(output_path)
+        ]
+
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    return r.returncode == 0
+
+def image_to_video(image_path, motion_prompt, output_path, shot_num=0):
+    """Create cinematic video from image using Ken Burns - each shot has different effect"""
+    return ken_burns_video(image_path, output_path, shot_num)
 
 def generate_narration(text, filename):
     h = {"xi-api-key": ELEVENLABS_API_KEY.strip(), "Content-Type": "application/json"}
@@ -540,10 +716,11 @@ def main():
             if first_image is None:
                 first_image = img_path
 
-            vid_ok = image_to_video(img_path, shot["mov"], vid_path)
-            if vid_ok:
+            # Create 5-second Ken Burns video from image
+            kb_ok = ken_burns_video(img_path, vid_path, j)
+            if kb_ok:
                 shot_videos.append(vid_path)
-                print("  Shot done")
+                print("  Shot " + shot_id + " done")
             else:
                 print("  Video failed")
 
