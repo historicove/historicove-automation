@@ -109,20 +109,27 @@ def generate_script():
     # Step 1b: Get full narrations for each scene separately
     scene_titles = ["HOOK", "THE WORLD", "THE RISE", "THE CONFLICT", "THE CLIMAX", "THE LEGACY"]
     scene_instructions = [
-        "Start mid-action. Most shocking moment. Present tense. No welcome. Drop viewer into action immediately.",
-        "Paint the world vividly. Show the stakes. Real historical context. Atmosphere and sensory details.",
-        "Turning point. Rising tension. Real dates and names. Build suspense. Cliffhanger ending.",
-        "Maximum drama. Battle or betrayal. Visceral real details. Emotional. Shocking historical facts.",
-        "Peak moment. Decision that changed history. Maximum emotional impact. Real consequences.",
-        "Why this matters today. Surprising legacy facts. Connection to modern world. Powerful question. Subscribe CTA."
+        "Write in SIMPLE conversational English that anyone can understand. No complex words. Start with the most shocking moment - drop viewer into action. Use short punchy sentences. Make it feel like a friend telling an amazing story. Present tense for drama.",
+        "Write in SIMPLE conversational English. Paint the world like you are describing it to a friend. Short sentences. Easy words. Make it vivid and exciting.",
+        "Write in SIMPLE conversational English. Build tension naturally. Short sentences. Easy to follow. Keep viewer hooked with suspense.",
+        "Write in SIMPLE conversational English. Describe the battle or conflict like an exciting movie. Easy words. Short punchy sentences. Maximum drama without complex language.",
+        "Write in SIMPLE conversational English. The peak moment - make it feel real and immediate. Short sentences. Easy words. Maximum emotional impact.",
+        "Write in SIMPLE conversational English. Why does this matter today? Connect to modern life simply. End with a thought-provoking question anyone can understand. Ask viewers to subscribe naturally."
     ]
 
     for i, scene in enumerate(script["scenes"]):
         p_narr = ('Write a 200-word narration for a YouTube historical documentary.\n'
                   'Topic: "' + topic + '"\n'
                   'Scene: "' + scene_titles[i] + '"\n'
-                  'Instructions: ' + scene_instructions[i] + '\n\n'
-                  'Write ONLY the narration text. No JSON. No titles. Just the 200-word narration.')
+                  'Style: ' + scene_instructions[i] + '\n\n'
+                  'IMPORTANT RULES:\n'
+                  '- Use SIMPLE everyday English words\n'
+                  '- Short sentences (max 15 words each)\n'
+                  '- Like talking to a friend, not writing a book\n'
+                  '- No complex historical jargon\n'
+                  '- Make it exciting and easy to follow\n'
+                  '- Exactly 200 words\n\n'
+                  'Write ONLY the narration text. No JSON. No titles. Just the narration.')
         narr_text = claude_request(p_narr, max_tokens=600)
         scene["narration"] = narr_text.strip()
         print("   Narration " + str(i+1) + ": " + str(len(narr_text.split())) + " words")
@@ -743,8 +750,7 @@ def main():
     all_scene_videos = []
     first_image = None
 
-    title_vid = create_title_card(script["title"])
-    all_scene_videos.append(title_vid)
+    # NO title card - start directly with HOOK scene for maximum impact
 
     for scene in script["scenes"]:
         print("\n" + "="*55)
