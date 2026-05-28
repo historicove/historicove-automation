@@ -89,17 +89,18 @@ def generate_script():
 
     # Step 1: Story + narrations
     p1 = ('Write a YouTube historical documentary script about: "' + topic + '"\n\n'
+          'IMPORTANT: Each narration must be AT LEAST 200 words for a 10-minute video.\n\n'
           'Return ONLY this JSON:\n'
           '{"title":"Dramatic title under 60 chars","description":"SEO description 200 words","tags":["history","documentary","ancient","war","empire","conquest","kings","battle","legend","mystery","untold","facts","historical","epic","civilization","rulers","warriors","secrets","power","death"],"thumbnail_text":"6 SHOCKING WORDS CAPS","thumbnail_subtext":"THE UNTOLD STORY","scenes":['
-          '{"id":1,"title":"HOOK","narration":"90 words. Start mid-action. Most shocking moment. Present tense."},'
-          '{"id":2,"title":"THE WORLD","narration":"90 words. Paint the world. Show the stakes."},'
-          '{"id":3,"title":"THE RISE","narration":"90 words. Turning point. Rising tension. Cliffhanger."},'
-          '{"id":4,"title":"THE CONFLICT","narration":"90 words. Maximum drama. Battle or betrayal."},'
-          '{"id":5,"title":"THE CLIMAX","narration":"90 words. Peak moment. Decision that changed history."},'
-          '{"id":6,"title":"THE LEGACY","narration":"90 words. Why this matters today. Subscribe CTA."}]}'
-          '\nReturn ONLY JSON. No markdown.')
+          '{"id":1,"title":"HOOK","narration":"WRITE 200+ WORDS. Start mid-action. Most shocking moment. Present tense. No welcome. Vivid sensory details. Real historical facts. Drop viewer into action."},'
+          '{"id":2,"title":"THE WORLD","narration":"WRITE 200+ WORDS. Paint the world vividly. Show the stakes. Real historical context. Sensory details. Atmosphere."},'
+          '{"id":3,"title":"THE RISE","narration":"WRITE 200+ WORDS. Turning point. Rising tension. Real dates and names. Build suspense. Cliffhanger ending."},'
+          '{"id":4,"title":"THE CONFLICT","narration":"WRITE 200+ WORDS. Maximum drama. Battle or betrayal. Visceral real details. Emotional. Shocking facts."},'
+          '{"id":5,"title":"THE CLIMAX","narration":"WRITE 200+ WORDS. Peak moment. Decision that changed history. Maximum emotional impact. Real consequences."},'
+          '{"id":6,"title":"THE LEGACY","narration":"WRITE 200+ WORDS. Why this matters today. Surprising legacy facts. Connection to modern world. Powerful question. Subscribe CTA."}]}'
+          '\nReturn ONLY JSON. No markdown. Each narration MUST be 200+ words.')
 
-    text1 = claude_request(p1, max_tokens=2000)
+    text1 = claude_request(p1, max_tokens=4000)
     script = parse_json(text1)
     if not script:
         raise ValueError("Failed to parse script JSON")
@@ -627,11 +628,31 @@ def merge_final(scene_videos, output_path):
     with open(cf, "w") as f:
         for vp in scene_videos:
             f.write("file '" + str(Path(vp).absolute()) + "'\n")
-    cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(cf), "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(output_path)]
+
+    # Use filter_complex to handle mixed audio streams properly
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0", "-i", str(cf),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-map", "0:v:0",
+        "-map", "0:a?",
+        str(output_path)
+    ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode == 0:
         size = Path(output_path).stat().st_size / (1024*1024)
         print("   Final video: " + str(round(size,1)) + " MB")
+        # Verify audio exists
+        probe = subprocess.run([
+            "ffprobe", "-v", "quiet", "-show_streams",
+            "-select_streams", "a", str(output_path)
+        ], capture_output=True, text=True)
+        if "codec_type=audio" in probe.stdout:
+            print("   ✅ Audio confirmed in final video")
+        else:
+            print("   ⚠️ No audio in final video!")
         return True
     print("   Merge failed: " + r.stderr[-200:])
     return False
