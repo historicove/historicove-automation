@@ -41,7 +41,7 @@ TOPICS = [
     "Zheng He: The Chinese admiral who explored the world before Columbus",
 ]
 
-def claude_request(prompt, max_tokens=3000):
+def claude_request(prompt, max_tokens=3000, retries=3):
     headers = {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
@@ -52,15 +52,33 @@ def claude_request(prompt, max_tokens=3000):
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}]
     }
-    resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=data)
-    resp.raise_for_status()
-    return resp.json()["content"][0]["text"].strip()
+    for attempt in range(retries):
+        try:
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=data, timeout=60)
+            resp.raise_for_status()
+            return resp.json()["content"][0]["text"].strip()
+        except Exception as e:
+            print("   Claude attempt " + str(attempt+1) + " failed: " + str(e))
+            if attempt < retries - 1:
+                time.sleep(5)
+    raise ValueError("Claude API failed after " + str(retries) + " attempts")
 
 def parse_json(text):
     start = text.find("{")
     end = text.rfind("}") + 1
     if start >= 0 and end > start:
-        return json.loads(text[start:end])
+        try:
+            return json.loads(text[start:end])
+        except:
+            # Try to fix common JSON issues
+            cleaned = text[start:end]
+            # Remove trailing commas
+            import re
+            cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+            try:
+                return json.loads(cleaned)
+            except:
+                pass
     return None
 
 def parse_json_array(text):
@@ -100,7 +118,7 @@ def generate_script():
           '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
           '\nReturn ONLY JSON. No markdown.')
 
-    text1 = claude_request(p1, max_tokens=1500)
+    text1 = claude_request(p1, max_tokens=800)
     script = parse_json(text1)
     if not script:
         raise ValueError("Failed to parse script JSON")
