@@ -48,7 +48,7 @@ def claude_request(prompt, max_tokens=3000, retries=3):
         "content-type": "application/json"
     }
     data = {
-        "model": "claude-opus-4-5",
+        "model": "claude-sonnet-4-5",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}]
     }
@@ -116,12 +116,18 @@ def generate_script():
           '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
           '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
           '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
-          '\nReturn ONLY JSON. No markdown.')
+          '\nReturn ONLY raw JSON. No markdown. No backticks. No explanation. Start with { and end with }.')
 
-    text1 = claude_request(p1, max_tokens=800)
-    script = parse_json(text1)
+    script = None
+    for attempt in range(3):
+        text1 = claude_request(p1, max_tokens=800)
+        script = parse_json(text1)
+        if script:
+            break
+        print("   JSON parse attempt " + str(attempt+1) + " failed, retrying...")
+        time.sleep(3)
     if not script:
-        raise ValueError("Failed to parse script JSON")
+        raise ValueError("Failed to parse script JSON after 3 attempts")
     print("   Script: " + script["title"])
 
     # Step 1b: Get full narrations for each scene separately
