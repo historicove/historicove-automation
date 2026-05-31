@@ -14,118 +14,31 @@ OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 TOPICS = [
-    # ── Conquerors & Warriors ──────────────────────────────────────────
     "Alexander the Great's final days and mysterious death in Babylon",
     "Genghis Khan: The shepherd boy who conquered half the world",
     "Hannibal Barca's impossible crossing of the Alps with war elephants",
     "Attila the Hun: The scourge of God who made Rome tremble",
     "Saladin and the recapture of Jerusalem from the Crusaders",
     "Tamerlane: The lame conqueror who built pyramids of skulls",
+    "Suleiman the Magnificent: The golden age of the Ottoman Empire",
     "Julius Caesar's assassination on the Ides of March",
     "Napoleon Bonaparte's catastrophic invasion of Russia",
-    "Spartacus: The slave gladiator who almost destroyed Rome",
-    "Boudicca: The warrior queen who burned Roman London to ashes",
-    "Richard the Lionheart: The crusader king who barely knew England",
-    "Khalid ibn al-Walid: The undefeated sword of Islam",
-    "Sun Tzu: The mysterious general who wrote the Art of War",
-    "Shaka Zulu: The warrior king who revolutionized African warfare",
-    "El Cid: Spain's greatest warrior and his life after death",
-
-    # ── Kings, Queens & Emperors ───────────────────────────────────────
+    "Ivan the Terrible: Russia's most brutal and brilliant tsar",
+    "Mehmed II: The 21-year-old sultan who ended the Byzantine Empire",
+    "Cyrus the Great: The shepherd son who built history's first empire",
     "Cleopatra: The last pharaoh and her battle to save Egypt",
     "Catherine the Great: The German princess who became Russia's empress",
-    "Ivan the Terrible: Russia's most brutal and brilliant tsar",
-    "Peter the Great: The giant tsar who dragged Russia into modernity",
-    "Cyrus the Great: The shepherd son who built history's first empire",
-    "Ramesses II: The pharaoh who turned his greatest defeat into victory",
-    "Hatshepsut: The female pharaoh who erased himself from history",
-    "Ashoka: The warrior emperor who chose peace after a river of blood",
-    "Henry VIII: The king who broke with God to break his marriages",
-    "Elizabeth I: The virgin queen who defeated the Spanish Armada",
-    "Mary Queen of Scots: The queen who died on her cousin's orders",
-    "Louis XIV: The Sun King who built the most extravagant court in history",
-    "Nero: The emperor who fiddled while Rome burned",
-    "Caligula: Rome's most depraved emperor and his shocking reign",
-    "Qin Shi Huang: The first emperor who unified China and feared death",
-    "Akbar the Great: The Mughal emperor who built an empire of tolerance",
-    "Frederick the Great: The philosopher king who made Prussia a superpower",
-    "Maria Theresa: The empress who ruled an empire and raised 16 children",
-    "Vlad the Impaler: The real Dracula and his forest of death",
-
-    # ── Political Giants of the Modern Era ────────────────────────────
-    "Winston Churchill: The man who refused to surrender when all hope was lost",
-    "Joseph Stalin: The peasant boy who became history's most paranoid dictator",
-    "Adolf Hitler: The rise and fall of the most evil regime in history",
-    "Abraham Lincoln: From log cabin to leading America through its bloodiest war",
-    "Mao Zedong: The poet revolutionary who starved millions in the name of progress",
-    "Franklin D. Roosevelt: The paralyzed president who saved democracy",
-    "John F. Kennedy: The assassination that changed America forever",
-    "Mahatma Gandhi: The lawyer who brought down an empire without firing a shot",
-    "Nelson Mandela: 27 years in prison and still became president",
-    "Vladimir Lenin: The exile who returned to start the Russian Revolution",
-    "Leon Trotsky: The revolutionary who was hunted to the ends of the earth",
-    "Benito Mussolini: The journalist who became a dictator and died on a lamppost",
-    "Fidel Castro: The lawyer who outsmarted the CIA for 50 years",
-    "Che Guevara: The doctor who became the world's most famous revolutionary",
-    "Mao's Cultural Revolution: When China turned on its own intellectuals",
-    "The last days of Adolf Hitler in the Berlin bunker",
-    "Richard Nixon: The president who bugged himself out of power",
-    "J. Edgar Hoover: The man who blackmailed every president for 48 years",
-
-    # ── Great Wars & Battles ───────────────────────────────────────────
+    "Joan of Arc: The peasant girl who changed the course of history",
     "The Battle of Thermopylae: 300 Spartans against a million Persians",
     "The fall of Constantinople: The day the Roman Empire finally died",
-    "The D-Day invasion: The largest military operation in human history",
-    "The Battle of Stalingrad: The bloodiest battle in the history of warfare",
-    "The Battle of Waterloo: Napoleon's final defeat and exile",
-    "The Mongol invasion of Baghdad: The day the Islamic Golden Age ended",
-    "The Battle of Marathon: How 10,000 Athenians stopped the Persian Empire",
-    "The Siege of Masada: 960 Jews who chose death over Roman slavery",
-    "World War I: The assassination that killed 20 million people",
-    "The atomic bombing of Hiroshima: The day the world changed forever",
-    "The fall of the Berlin Wall: How one press conference ended the Cold War",
-    "The Cuban Missile Crisis: 13 days that almost ended the world",
-    "The Vietnam War: America's most controversial and costly defeat",
-    "The Six-Day War: How Israel won a war in less than a week",
-
-    # ── Ancient Civilizations ──────────────────────────────────────────
-    "The mystery of the Egyptian pyramids: How and why they were really built",
-    "Pompeii: The city that was frozen in time by a volcano",
-    "The lost city of Troy: Myth or reality?",
-    "Ancient Rome: How a small village became the greatest empire on earth",
-    "The Library of Alexandria: What was really lost when it burned",
-    "The Maya civilization: Why did millions of people simply vanish?",
-    "Sparta vs Athens: The war that defined Western civilization",
-    "The Persian Empire: The most tolerant superpower of the ancient world",
-    "Ancient Egypt's Book of the Dead: The real beliefs about the afterlife",
-    "Carthage: The great civilization that Rome erased from history",
-    "The Vikings: Raiders, traders and explorers who reached America first",
-    "The Aztec Empire: The shocking truth behind human sacrifice",
-    "The Inca Empire: How Spain destroyed the greatest civilization in the Americas",
-    "Babylon: The world's first great city and its legendary hanging gardens",
-
-    # ── Mysterious & Controversial Figures ────────────────────────────
-    "Rasputin: The mad monk who could not be killed",
-    "Nikola Tesla: The genius who was robbed, mocked and forgotten",
-    "Jack the Ripper: The unsolved murders that shocked Victorian London",
-    "Mata Hari: The spy dancer executed for secrets she may not have known",
-    "Anastasia Romanov: The princess who may have escaped the firing squad",
-    "Howard Hughes: The billionaire who went from playboy to paranoid recluse",
-    "Amelia Earhart: The world's most famous disappearance over the Pacific",
-    "D.B. Cooper: The only unsolved skyjacking in American history",
-    "The Romanov execution: The night Russia's royal family was murdered",
-    "The Zodiac Killer: The serial killer who taunted police and was never caught",
-    "Grigori Rasputin's impossible death: Poisoned, shot and drowned",
-    "The Dyatlov Pass incident: Nine hikers who died in unexplained terror",
-    "Nostradamus: The prophet who predicted the future or just wrote poetry?",
-    "Nikola Tesla vs Thomas Edison: The war of currents that lit the world",
-
-    # ── Zheng He & Explorers ───────────────────────────────────────────
+    "Vlad the Impaler: The real Dracula and his forest of death",
+    "Boudicca: The warrior queen who burned Roman London to ashes",
+    "Spartacus: The slave gladiator who almost destroyed Rome",
+    "Ramesses II: The pharaoh who turned his greatest defeat into victory",
+    "Peter the Great: The giant tsar who dragged Russia into modernity",
+    "Ashoka: The warrior emperor who chose peace after a river of blood",
+    "Hatshepsut: The female pharaoh who erased herself from history",
     "Zheng He: The Chinese admiral who explored the world before Columbus",
-    "Christopher Columbus: The man who discovered America by accident",
-    "Marco Polo: Did he really go to China or was it all a lie?",
-    "Ferdinand Magellan: The first man to circumnavigate the globe — who died halfway",
-    "Vasco da Gama: The explorer who opened the sea route to India and destroyed it",
 ]
 
 def claude_request(prompt, max_tokens=3000, retries=3):
@@ -135,7 +48,7 @@ def claude_request(prompt, max_tokens=3000, retries=3):
         "content-type": "application/json"
     }
     data = {
-        "model": "claude-sonnet-4-5",
+        "model": "claude-opus-4-5",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}]
     }
@@ -203,18 +116,12 @@ def generate_script():
           '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
           '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
           '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
-          '\nReturn ONLY raw JSON. No markdown. No backticks. No explanation. Start with { and end with }.')
+          '\nReturn ONLY JSON. No markdown.')
 
-    script = None
-    for attempt in range(3):
-        text1 = claude_request(p1, max_tokens=800)
-        script = parse_json(text1)
-        if script:
-            break
-        print("   JSON parse attempt " + str(attempt+1) + " failed, retrying...")
-        time.sleep(3)
+    text1 = claude_request(p1, max_tokens=800)
+    script = parse_json(text1)
     if not script:
-        raise ValueError("Failed to parse script JSON after 3 attempts")
+        raise ValueError("Failed to parse script JSON")
     print("   Script: " + script["title"])
 
     # Step 1b: Get full narrations for each scene separately
@@ -815,6 +722,44 @@ def merge_final(scene_videos, output_path):
     print("   Merge failed: " + r.stderr[-300:])
     return False
 
+def add_background_music(video_path, output_path):
+    """Mix background music at low volume under the final video"""
+    music_dir = Path("music")
+    if not music_dir.exists():
+        print("   No music folder found, skipping...")
+        return False
+
+    music_files = list(music_dir.glob("*.mp3")) + list(music_dir.glob("*.MP3"))
+    music_files = [f for f in music_files if f.name != "placeholder.txt"]
+
+    if not music_files:
+        print("   No music files found, skipping...")
+        return False
+
+    chosen = random.choice(music_files)
+    print("   🎵 Background music: " + chosen.name)
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_path),
+        "-stream_loop", "-1", "-i", str(chosen),
+        "-filter_complex",
+        "[1:a]volume=0.12[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=3[aout]",
+        "-map", "0:v",
+        "-map", "[aout]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest",
+        "-movflags", "+faststart",
+        str(output_path)
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode == 0:
+        print("   ✅ Background music added!")
+        return True
+    print("   ❌ Music mix failed: " + r.stderr[-200:])
+    return False
+
 def upload_youtube(video_path, thumb_path, script):
     print("Uploading to YouTube...")
     import pickle
@@ -932,7 +877,15 @@ def main():
         print("Final merge failed.")
         return
 
-    vid_id = upload_youtube(final_video, thumbnail, script)
+    # Add background music
+    final_with_music = OUTPUT_DIR / "final_video_music.mp4"
+    print("\n🎵 Adding background music...")
+    if add_background_music(final_video, final_with_music):
+        upload_video = final_with_music
+    else:
+        upload_video = final_video
+
+    vid_id = upload_youtube(upload_video, thumbnail, script)
 
     print("\n" + "="*65)
     if vid_id:
