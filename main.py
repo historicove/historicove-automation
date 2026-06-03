@@ -48,7 +48,7 @@ def claude_request(prompt, max_tokens=3000, retries=3):
         "content-type": "application/json"
     }
     data = {
-        "model": "claude-opus-4-5",
+        "model": "claude-sonnet-4-5",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}]
     }
@@ -116,12 +116,18 @@ def generate_script():
           '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
           '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
           '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
-          '\nReturn ONLY JSON. No markdown.')
+          '\nReturn ONLY raw JSON. No markdown. No backticks. No explanation. Start with { and end with }.')
 
-    text1 = claude_request(p1, max_tokens=800)
-    script = parse_json(text1)
+    script = None
+    for attempt in range(5):
+        text1 = claude_request(p1, max_tokens=800)
+        script = parse_json(text1)
+        if script:
+            break
+        print("   JSON parse attempt " + str(attempt+1) + " failed, retrying...")
+        time.sleep(3)
     if not script:
-        raise ValueError("Failed to parse script JSON")
+        raise ValueError("Failed to parse script JSON after 5 attempts")
     print("   Script: " + script["title"])
 
     # Step 1b: Get full narrations for each scene separately
@@ -728,17 +734,13 @@ def add_background_music(video_path, output_path):
     if not music_dir.exists():
         print("   No music folder found, skipping...")
         return False
-
     music_files = list(music_dir.glob("*.mp3")) + list(music_dir.glob("*.MP3"))
-    music_files = [f for f in music_files if f.name != "placeholder.txt"]
-
+    music_files = [f for f in music_files if f.suffix in ['.mp3', '.MP3']]
     if not music_files:
         print("   No music files found, skipping...")
         return False
-
     chosen = random.choice(music_files)
     print("   🎵 Background music: " + chosen.name)
-
     cmd = [
         "ffmpeg", "-y",
         "-i", str(video_path),
