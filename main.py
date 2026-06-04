@@ -109,13 +109,24 @@ def generate_script():
     # Step 1: Get title, tags, thumbnail + short narrations
     p1 = ('Write a YouTube historical documentary script about: "' + topic + '"\n\n'
           'Return ONLY this JSON (keep narrations under 50 words each as placeholders):\n'
-          '{"title":"Dramatic title under 60 chars","description":"SEO description 200 words","tags":["history","documentary","ancient","war","empire","conquest","kings","battle","legend","mystery","untold","facts","historical","epic","civilization","rulers","warriors","secrets","power","death"],"thumbnail_text":"6 SHOCKING WORDS CAPS","thumbnail_subtext":"THE UNTOLD STORY","scenes":['
+          '{"title":"Dramatic title under 60 chars",'
+          '"description":"SEO optimized description. First 2 sentences must hook the viewer and contain the main keywords. Then 3-4 sentences about what they will learn. Then this EXACT chapters block:\\n\\n'
+          '00:00 The Shocking Beginning\\n'
+          '02:30 The World They Lived In\\n'
+          '05:00 The Rise To Power\\n'
+          '07:30 The Great Conflict\\n'
+          '10:00 The Ultimate Climax\\n'
+          '12:30 The Lasting Legacy\\n\\n'
+          'End with:\n\nSubscribe to HistoriCove TV for daily historical documentaries!\n\n#History #Documentary #AncientHistory #[specific topic hashtag 1] #[specific topic hashtag 2] #HistoricalFacts #AncientCivilization #WorldHistory #HistoryChannel #Documentary2025 #[specific topic hashtag 3] #TrueHistory #HistoryLovers #AncientWorld #EpicHistory",'
+          '"tags":["GENERATE 20 HIGHLY SPECIFIC tags for this exact topic - mix of: specific person name, specific battle/event name, specific era, specific location, specific keywords people search - NOT generic words like history or documentary"],'
+          '"thumbnail_text":"6 SHOCKING WORDS CAPS","thumbnail_subtext":"THE UNTOLD STORY","scenes":['
           '{"id":1,"title":"HOOK","narration":"placeholder"},'
           '{"id":2,"title":"THE WORLD","narration":"placeholder"},'
           '{"id":3,"title":"THE RISE","narration":"placeholder"},'
           '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
           '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
           '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
+          '\nFor tags: generate SPECIFIC tags like ["300 spartans","battle of thermopylae","leonidas","persian wars","ancient greece","xerxes","spartan warriors","greek history","480 BC","persian empire","ancient warfare","spartan king","hot gates","persian invasion","ancient battles","greece documentary","sparta history","thermopylae 480BC","leonidas king","ancient military"]'
           '\nReturn ONLY raw JSON. No markdown. No backticks. No explanation. Start with { and end with }.')
 
     script = None
