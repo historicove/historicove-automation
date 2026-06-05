@@ -64,21 +64,70 @@ def claude_request(prompt, max_tokens=3000, retries=3):
     raise ValueError("Claude API failed after " + str(retries) + " attempts")
 
 def parse_json(text):
+    import re
+    # Extract JSON block
     start = text.find("{")
     end = text.rfind("}") + 1
-    if start >= 0 and end > start:
-        try:
-            return json.loads(text[start:end])
-        except:
-            # Try to fix common JSON issues
-            cleaned = text[start:end]
-            # Remove trailing commas
-            import re
-            cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
-            try:
-                return json.loads(cleaned)
-            except:
-                pass
+    if start < 0 or end <= start:
+        return None
+    raw = text[start:end]
+
+    # Attempt 1: direct parse
+    try:
+        return json.loads(raw)
+    except:
+        pass
+
+    # Attempt 2: remove trailing commas
+    cleaned = re.sub(r',(\s*[}\]])', r'\1', raw)
+    try:
+        return json.loads(cleaned)
+    except:
+        pass
+
+    # Attempt 3: fix unescaped newlines inside strings
+    cleaned2 = re.sub(r'(?<!\\)\n', ' ', cleaned)
+    try:
+        return json.loads(cleaned2)
+    except:
+        pass
+
+    # Attempt 4: fix smart quotes and common encoding issues
+    cleaned3 = cleaned2.replace('\u201c', '"').replace('\u201d', '"').replace('\u2018', "'").replace('\u2019', "'")
+    try:
+        return json.loads(cleaned3)
+    except:
+        pass
+
+    # Attempt 5: strip everything after last valid } bracket by depth counting
+    try:
+        depth = 0
+        in_string = False
+        escape = False
+        last_valid_end = -1
+        for i, ch in enumerate(cleaned3):
+            if escape:
+                escape = False
+                continue
+            if ch == '\\' and in_string:
+                escape = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if not in_string:
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        last_valid_end = i + 1
+                        break
+        if last_valid_end > 0:
+            return json.loads(cleaned3[:last_valid_end])
+    except:
+        pass
+
     return None
 
 def parse_json_array(text):
@@ -105,29 +154,35 @@ def generate_script():
     topic = random.choice(TOPICS)
     print("   Topic: " + topic)
 
-    # Step 1: Story + narrations
     # Step 1: Get title, tags, thumbnail + short narrations
-    p1 = ('Write a YouTube historical documentary script about: "' + topic + '"\n\n'
-          'Return ONLY this JSON (keep narrations under 50 words each as placeholders):\n'
-          '{"title":"Dramatic title under 60 chars",'
-          '"description":"SEO optimized description. First 2 sentences must hook the viewer and contain the main keywords. Then 3-4 sentences about what they will learn. Then this EXACT chapters block:\\n\\n'
-          '00:00 The Shocking Beginning\\n'
-          '02:30 The World They Lived In\\n'
-          '05:00 The Rise To Power\\n'
-          '07:30 The Great Conflict\\n'
-          '10:00 The Ultimate Climax\\n'
-          '12:30 The Lasting Legacy\\n\\n'
-          'End with:\n\nSubscribe to HistoriCove TV for daily historical documentaries!\n\n#History #Documentary #AncientHistory #[specific topic hashtag 1] #[specific topic hashtag 2] #HistoricalFacts #AncientCivilization #WorldHistory #HistoryChannel #Documentary2025 #[specific topic hashtag 3] #TrueHistory #HistoryLovers #AncientWorld #EpicHistory",'
-          '"tags":["GENERATE 20 HIGHLY SPECIFIC tags for this exact topic - mix of: specific person name, specific battle/event name, specific era, specific location, specific keywords people search - NOT generic words like history or documentary"],'
-          '"thumbnail_text":"6 SHOCKING WORDS CAPS","thumbnail_subtext":"THE UNTOLD STORY","scenes":['
-          '{"id":1,"title":"HOOK","narration":"placeholder"},'
-          '{"id":2,"title":"THE WORLD","narration":"placeholder"},'
-          '{"id":3,"title":"THE RISE","narration":"placeholder"},'
-          '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},'
-          '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},'
-          '{"id":6,"title":"THE LEGACY","narration":"placeholder"}]}'
-          '\nFor tags: generate SPECIFIC tags like ["300 spartans","battle of thermopylae","leonidas","persian wars","ancient greece","xerxes","spartan warriors","greek history","480 BC","persian empire","ancient warfare","spartan king","hot gates","persian invasion","ancient battles","greece documentary","sparta history","thermopylae 480BC","leonidas king","ancient military"]'
-          '\nReturn ONLY raw JSON. No markdown. No backticks. No explanation. Start with { and end with }.')
+    p1 = (
+        'You are a JSON generator. Output ONLY valid JSON, nothing else.\n'
+        'Topic: "' + topic + '"\n\n'
+        'Generate a YouTube historical documentary JSON with this EXACT structure.\n'
+        'Rules:\n'
+        '- title: dramatic, under 60 chars\n'
+        '- description: plain text, NO double quotes inside, include chapters and hashtags\n'
+        '- tags: exactly 20 SPECIFIC tags (person names, battle names, dates, locations)\n'
+        '- thumbnail_text: 6 shocking words in ALL CAPS\n'
+        '- thumbnail_subtext: short subtitle in caps\n'
+        '- scenes: exactly 6 scenes with placeholder narrations\n'
+        '- Output ONLY the raw JSON. No markdown. No backticks. Start with { end with }\n\n'
+        '{\n'
+        '"title": "...",\n'
+        '"description": "Hook sentence one. Hook sentence two with keywords. What viewers will discover. Why this matters today.\n\n00:00 The Shocking Beginning\n02:30 The World They Lived In\n05:00 The Rise To Power\n07:30 The Great Conflict\n10:00 The Ultimate Climax\n12:30 The Lasting Legacy\n\nSubscribe to HistoriCove TV for daily historical documentaries!\n\n#History #Documentary #AncientHistory #HistoricalFacts #WorldHistory #HistoryChannel #TrueHistory #HistoryLovers #AncientWorld #EpicHistory",\n'
+        '"tags": ["specific_tag_1","specific_tag_2","specific_tag_3","specific_tag_4","specific_tag_5","specific_tag_6","specific_tag_7","specific_tag_8","specific_tag_9","specific_tag_10","specific_tag_11","specific_tag_12","specific_tag_13","specific_tag_14","specific_tag_15","specific_tag_16","specific_tag_17","specific_tag_18","specific_tag_19","specific_tag_20"],\n'
+        '"thumbnail_text": "SIX WORDS ALL CAPS HERE",\n'
+        '"thumbnail_subtext": "THE UNTOLD STORY",\n'
+        '"scenes": [\n'
+        '{"id":1,"title":"HOOK","narration":"placeholder"},\n'
+        '{"id":2,"title":"THE WORLD","narration":"placeholder"},\n'
+        '{"id":3,"title":"THE RISE","narration":"placeholder"},\n'
+        '{"id":4,"title":"THE CONFLICT","narration":"placeholder"},\n'
+        '{"id":5,"title":"THE CLIMAX","narration":"placeholder"},\n'
+        '{"id":6,"title":"THE LEGACY","narration":"placeholder"}\n'
+        ']\n'
+        '}'
+    )
 
     script = None
     for attempt in range(5):
