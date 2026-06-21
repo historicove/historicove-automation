@@ -267,30 +267,83 @@ def get_kling_token():
 def kling_headers():
     return {"Authorization": "Bearer " + get_kling_token(), "Content-Type": "application/json"}
 
+KLING_REQUEST_TIMEOUT = 30   # seconds per HTTP call - never hang indefinitely
+KLING_POLL_TIMEOUT = 20      # seconds per poll HTTP call
+KLING_SUBMIT_RETRIES = 3     # retries for the initial submit call
+KLING_MAX_POLLS = 20         # how many times to poll for completion
+KLING_POLL_INTERVAL = 8      # seconds between polls
+
+def _kling_submit(payload):
+    """Submit a Kling generation job with retries + strict timeout. Returns task_id or None."""
+    for attempt in range(1, KLING_SUBMIT_RETRIES + 1):
+        try:
+            resp = requests.post(
+                "https://api.klingai.com/v1/images/generations",
+                headers=kling_headers(),
+                json=payload,
+                timeout=KLING_REQUEST_TIMEOUT
+            )
+            if resp.status_code == 200:
+                task_id = resp.json().get("data", {}).get("task_id")
+                if task_id:
+                    return task_id
+                print("   Kling submit: no task_id in response")
+            else:
+                print("   Kling submit failed (status " + str(resp.status_code) + "), attempt " + str(attempt))
+        except requests.exceptions.RequestException as e:
+            print("   Kling submit error (attempt " + str(attempt) + "): " + str(e)[:150])
+        if attempt < KLING_SUBMIT_RETRIES:
+            time.sleep(3)
+    return None
+
 def generate_image(prompt, filename):
     enhanced = "Photorealistic historical oil painting masterpiece. " + prompt + " Rembrandt chiaroscuro lighting. Museum quality. Ultra detailed authentic period costumes. NOT cartoon. NOT CGI. NOT modern."
     payload = {"model": "kling-v2-1", "prompt": enhanced, "negative_prompt": "cartoon, anime, CGI, modern, watermark, text, blurry, distorted, AI-looking", "aspect_ratio": "16:9", "n": 1}
-    resp = requests.post("https://api.klingai.com/v1/images/generations", headers=kling_headers(), json=payload)
-    if resp.status_code != 200:
-        return fetch_pexels(prompt, filename)
-    task_id = resp.json().get("data", {}).get("task_id")
+
+    task_id = _kling_submit(payload)
     if not task_id:
         return fetch_pexels(prompt, filename)
-    for _ in range(20):
-        time.sleep(8)
-        check = requests.get("https://api.klingai.com/v1/images/generations/" + task_id, headers=kling_headers())
-        if check.status_code != 200:
+
+    consecutive_check_errors = 0
+    for _ in range(KLING_MAX_POLLS):
+        time.sleep(KLING_POLL_INTERVAL)
+        try:
+            check = requests.get(
+                "https://api.klingai.com/v1/images/generations/" + task_id,
+                headers=kling_headers(),
+                timeout=KLING_POLL_TIMEOUT
+            )
+        except requests.exceptions.RequestException as e:
+            consecutive_check_errors += 1
+            print("   Kling poll error: " + str(e)[:150])
+            if consecutive_check_errors >= 4:
+                print("   Too many poll errors, falling back to Pexels")
+                return fetch_pexels(prompt, filename)
             continue
+
+        if check.status_code != 200:
+            consecutive_check_errors += 1
+            if consecutive_check_errors >= 4:
+                return fetch_pexels(prompt, filename)
+            continue
+
+        consecutive_check_errors = 0
         data = check.json().get("data", {})
         if data.get("task_status") == "succeed":
             imgs = data.get("task_result", {}).get("images", [])
             if imgs:
-                r = requests.get(imgs[0]["url"], timeout=30)
-                with open(filename, "wb") as f:
-                    f.write(r.content)
-                return True
+                try:
+                    r = requests.get(imgs[0]["url"], timeout=30)
+                    with open(filename, "wb") as f:
+                        f.write(r.content)
+                    return True
+                except requests.exceptions.RequestException as e:
+                    print("   Kling image download error: " + str(e)[:150])
+                    return fetch_pexels(prompt, filename)
         elif data.get("task_status") == "failed":
             return fetch_pexels(prompt, filename)
+
+    print("   Kling timed out after " + str(KLING_MAX_POLLS * KLING_POLL_INTERVAL) + "s, falling back to Pexels")
     return fetch_pexels(prompt, filename)
 
 def fetch_pexels(prompt, filename):
