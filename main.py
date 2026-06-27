@@ -13,33 +13,87 @@ ELEVENLABS_VOICE_ID = "JJCR1UICgHnHljtvu5uF"
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-TOPICS = [
-    "Alexander the Great's final days and mysterious death in Babylon",
-    "Genghis Khan: The shepherd boy who conquered half the world",
-    "Hannibal Barca's impossible crossing of the Alps with war elephants",
-    "Attila the Hun: The scourge of God who made Rome tremble",
-    "Saladin and the recapture of Jerusalem from the Crusaders",
-    "Tamerlane: The lame conqueror who built pyramids of skulls",
-    "Suleiman the Magnificent: The golden age of the Ottoman Empire",
-    "Julius Caesar's assassination on the Ides of March",
-    "Napoleon Bonaparte's catastrophic invasion of Russia",
-    "Ivan the Terrible: Russia's most brutal and brilliant tsar",
-    "Mehmed II: The 21-year-old sultan who ended the Byzantine Empire",
-    "Cyrus the Great: The shepherd son who built history's first empire",
-    "Cleopatra: The last pharaoh and her battle to save Egypt",
-    "Catherine the Great: The German princess who became Russia's empress",
-    "Joan of Arc: The peasant girl who changed the course of history",
-    "The Battle of Thermopylae: 300 Spartans against a million Persians",
-    "The fall of Constantinople: The day the Roman Empire finally died",
-    "Vlad the Impaler: The real Dracula and his forest of death",
-    "Boudicca: The warrior queen who burned Roman London to ashes",
-    "Spartacus: The slave gladiator who almost destroyed Rome",
-    "Ramesses II: The pharaoh who turned his greatest defeat into victory",
-    "Peter the Great: The giant tsar who dragged Russia into modernity",
-    "Ashoka: The warrior emperor who chose peace after a river of blood",
-    "Hatshepsut: The female pharaoh who erased herself from history",
-    "Zheng He: The Chinese admiral who explored the world before Columbus",
+TOPIC_HISTORY_FILE = Path("topic_history.json")
+
+TOPIC_CATEGORIES = [
+    "historical political leaders and their rise to power",
+    "modern world leaders and their life stories",
+    "ancient civilizations and their rulers",
+    "famous historical battles and their decisive moments",
+    "historical figures who changed the world against all odds",
+    "untold stories of powerful women in history",
+    "empires that rose and fell dramatically",
+    "revolutionary leaders and independence movements",
+    "historical mysteries and controversial figures",
+    "legendary military commanders and their strategies",
 ]
+
+def load_topic_history():
+    if TOPIC_HISTORY_FILE.exists():
+        try:
+            with open(TOPIC_HISTORY_FILE) as f:
+                return json.load(f)
+        except:
+            pass
+    return []
+
+def save_topic_history(history):
+    with open(TOPIC_HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+def generate_fresh_topic(used_topics):
+    category = random.choice(TOPIC_CATEGORIES)
+    used_str = "\n".join("- " + t for t in used_topics[-60:]) if used_topics else "None yet"
+
+    prompt = (
+        'You are a YouTube documentary topic expert specializing in history and world leaders.\n\n'
+        'Generate ONE unique, engaging documentary topic for a historical YouTube channel.\n\n'
+        'Category focus: ' + category + '\n\n'
+        'Requirements:\n'
+        '- Must be about a SPECIFIC person, event, or story (not generic)\n'
+        '- Must be dramatic, emotional, and compelling for YouTube audiences\n'
+        '- Focus on: political leaders (historical or modern), power struggles, betrayals, rises and falls\n'
+        '- Can include: ancient rulers, medieval kings, modern presidents/dictators, revolutionaries\n'
+        '- Must NOT be any of these already used topics:\n'
+        + used_str + '\n\n'
+        'Return ONLY the topic as a single sentence (under 15 words). No explanation. No quotes. No punctuation at end.'
+    )
+
+    for attempt in range(3):
+        try:
+            topic = claude_request(prompt, max_tokens=100).strip().strip('"').strip("'")
+            # Make sure it's not too similar to existing topics
+            topic_lower = topic.lower()
+            is_duplicate = any(
+                any(word in topic_lower for word in used.lower().split()[:3])
+                for used in used_topics[-30:]
+            )
+            if not is_duplicate or attempt == 2:
+                return topic
+        except Exception as e:
+            print("   Topic generation error: " + str(e))
+            time.sleep(2)
+
+    # Last resort fallback
+    fallbacks = [
+        "Muammar Gaddafi: The colonel who ruled Libya for 42 years",
+        "Fidel Castro: The revolutionary who defied America for 50 years",
+        "Mao Zedong: The peasant who became China's most powerful ruler",
+        "Otto von Bismarck: The Iron Chancellor who unified Germany",
+        "Simón Bolívar: The liberator who freed six South American nations",
+        "Haile Selassie: The last emperor of Africa's oldest monarchy",
+        "Ho Chi Minh: The revolutionary who defeated two superpowers",
+        "Mosaddegh: The Iranian PM overthrown by CIA in 1953",
+        "Kwame Nkrumah: The visionary who led Ghana to independence",
+        "Lumumba: The Congolese leader assassinated by Western powers",
+        "Nasser: The Egyptian leader who defied Britain and Israel",
+        "Tito: The communist leader who said no to Stalin and survived",
+        "Sukarno: Indonesia's founding father and his dramatic downfall",
+        "Allende: The first democratically elected Marxist leader",
+        "Nehru: The architect of modern India and his complex legacy",
+    ]
+    available = [f for f in fallbacks if f not in used_topics]
+    return available[0] if available else fallbacks[0]
 
 def claude_request(prompt, max_tokens=3000, retries=3):
     headers = {
@@ -151,7 +205,11 @@ def fallback_shots(scene_id, topic, scene_title):
 
 def generate_script():
     print("📜 Generating script...")
-    topic = random.choice(TOPICS)
+    used_topics = load_topic_history()
+    print("   Topics used so far: " + str(len(used_topics)))
+    topic = generate_fresh_topic(used_topics)
+    used_topics.append(topic)
+    save_topic_history(used_topics)
     print("   Topic: " + topic)
 
     # Step 1: Get title, tags, thumbnail + short narrations
@@ -1012,9 +1070,16 @@ def main():
     if vid_id:
         print("SUCCESS! https://youtu.be/" + vid_id)
         print("Title: " + script["title"])
+        # Save topic history to repo so future runs avoid duplicates
+        try:
+            subprocess.run(["git", "config", "user.email", "action@github.com"], check=True)
+            subprocess.run(["git", "config", "user.name", "GitHub Action"], check=True)
+            subprocess.run(["git", "add", "topic_history.json"], check=True)
+            subprocess.run(["git", "commit", "-m", "chore: update topic history [skip ci]"], check=True)
+            subprocess.run(["git", "push"], check=True)
+            print("Topic history saved to repo.")
+        except Exception as e:
+            print("Could not save topic history: " + str(e))
     else:
         print("Video created but upload failed")
     print("="*65)
-
-if __name__ == "__main__":
-    main()
