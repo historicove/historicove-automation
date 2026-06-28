@@ -13,87 +13,83 @@ ELEVENLABS_VOICE_ID = "JJCR1UICgHnHljtvu5uF"
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-TOPIC_HISTORY_FILE = Path("topic_history.json")
+TOPICS = [
+    # Ancient World Leaders
+    "Cyrus the Great: The shepherd who built history's first empire",
+    "Alexander the Great's fatal obsession that destroyed his empire",
+    "Cleopatra's desperate battle to save Egypt from Rome",
+    "Julius Caesar's rise from debt-ridden politician to dictator",
+    "Ramesses II: The pharaoh who rewrote history after his worst defeat",
+    "Hannibal Barca: The genius who almost destroyed Rome",
+    "Boudicca: The warrior queen who burned Roman London to ashes",
+    "Spartacus: The slave who made Rome tremble for two years",
+    "Hatshepsut: The female pharaoh erased from history by her own son",
+    "Ashoka: The conqueror who saw 100,000 dead and chose peace",
 
-TOPIC_CATEGORIES = [
-    "historical political leaders and their rise to power",
-    "modern world leaders and their life stories",
-    "ancient civilizations and their rulers",
-    "famous historical battles and their decisive moments",
-    "historical figures who changed the world against all odds",
-    "untold stories of powerful women in history",
-    "empires that rose and fell dramatically",
-    "revolutionary leaders and independence movements",
-    "historical mysteries and controversial figures",
-    "legendary military commanders and their strategies",
+    # Medieval & Ottoman Leaders
+    "Mehmed II: The 21-year-old who ended a 1000-year empire in 53 days",
+    "Saladin: The Kurdish warrior who recaptured Jerusalem with mercy",
+    "Suleiman the Magnificent: The lawmaker who made the world fear the Ottomans",
+    "Genghis Khan: The abandoned boy who conquered half the world",
+    "Tamerlane: The lame shepherd who built a pyramid of 90,000 skulls",
+    "Vlad the Impaler: The prince who terrorized an empire with 20,000 stakes",
+    "Ivan the Terrible: Russia's first tsar who killed his own beloved son",
+    "Attila the Hun: The man who made two empires pay him tribute",
+    "Joan of Arc: The 17-year-old peasant who saved France and was burned alive",
+    "Richard the Lionheart: The king who spent only 6 months in England",
+
+    # Modern Political Leaders - Historical
+    "Napoleon Bonaparte: From Corsican nobody to emperor of Europe",
+    "Otto von Bismarck: The Iron Chancellor who unified Germany through blood",
+    "Abraham Lincoln: The self-taught lawyer who held America together",
+    "Winston Churchill: The man rejected by everyone who saved the world",
+    "Adolf Hitler: The failed artist who plunged the world into darkness",
+    "Joseph Stalin: The seminary student who became history's deadliest dictator",
+    "Mao Zedong: The peasant librarian who remade China through terror",
+    "Fidel Castro: The lawyer who outlasted 10 US presidents",
+    "Che Guevara: The doctor who became the world's most famous revolutionary",
+    "Ho Chi Minh: The kitchen helper who defeated two superpowers",
+
+    # Modern World Leaders
+    "Muammar Gaddafi: The desert boy who ruled Libya for 42 years",
+    "Saddam Hussein: The son of a murderer who became Iraq's iron fist",
+    "Mohammad Mosaddegh: The Iranian PM overthrown by the CIA in 1953",
+    "Patrice Lumumba: The Congolese hero assassinated 66 days after independence",
+    "Kwame Nkrumah: The visionary who gave Ghana its freedom",
+    "Gamal Abdel Nasser: The colonel who defied Britain, France and Israel",
+    "Josip Broz Tito: The communist who said no to Stalin and survived",
+    "Salvador Allende: The first Marxist president killed by his own military",
+    "Augusto Pinochet: The general who tortured a nation for 17 years",
+    "Idi Amin: The army cook who declared himself King of Scotland",
+
+    # Asian & Middle Eastern Leaders
+    "Jawaharlal Nehru: The aristocrat who shaped the world's largest democracy",
+    "Sukarno: Indonesia's founding father and his dramatic downfall",
+    "Park Chung-hee: The general who turned South Korea from rags to riches",
+    "Mao's Great Leap Forward: The plan that killed 45 million people",
+    "Pol Pot: The Paris student who turned Cambodia into a killing field",
+    "Kim Il-sung: How a Soviet soldier became North Korea's eternal leader",
+    "Ruhollah Khomeini: The exiled cleric who took over Iran in 11 days",
+    "Hafez al-Assad: The pilot who ruled Syria through fear for 30 years",
+
+    # Powerful Women in History
+    "Catherine the Great: The German princess who became Russia's greatest ruler",
+    "Wu Zetian: The concubine who became China's only female emperor",
+    "Indira Gandhi: The lonely child who became India's iron lady",
+    "Golda Meir: The Milwaukee housewife who led Israel through war",
+    "Margaret Thatcher: The grocer's daughter who broke the British unions",
+    "Benazir Bhutto: The first female leader of a Muslim nation",
+    "Eleanor Roosevelt: The shy orphan who became the world's most admired woman",
+    "Queen Elizabeth I: The princess declared illegitimate who ruled 45 years",
+
+    # Empires & Civilizations
+    "The fall of Constantinople: The day a thousand-year empire died",
+    "The Battle of Thermopylae: 300 Spartans against a million Persians",
+    "Peter the Great: The tsar who force-modernized Russia by shaving beards",
+    "The Roman Republic's fall: How democracy died in ancient Rome",
+    "The Mongol invasion: How three years destroyed centuries of civilization",
+    "The Spanish Inquisition: 350 years of Europe's most feared institution",
 ]
-
-def load_topic_history():
-    if TOPIC_HISTORY_FILE.exists():
-        try:
-            with open(TOPIC_HISTORY_FILE) as f:
-                return json.load(f)
-        except:
-            pass
-    return []
-
-def save_topic_history(history):
-    with open(TOPIC_HISTORY_FILE, "w") as f:
-        json.dump(history, f, indent=2)
-
-def generate_fresh_topic(used_topics):
-    category = random.choice(TOPIC_CATEGORIES)
-    used_str = "\n".join("- " + t for t in used_topics[-60:]) if used_topics else "None yet"
-
-    prompt = (
-        'You are a YouTube documentary topic expert specializing in history and world leaders.\n\n'
-        'Generate ONE unique, engaging documentary topic for a historical YouTube channel.\n\n'
-        'Category focus: ' + category + '\n\n'
-        'Requirements:\n'
-        '- Must be about a SPECIFIC person, event, or story (not generic)\n'
-        '- Must be dramatic, emotional, and compelling for YouTube audiences\n'
-        '- Focus on: political leaders (historical or modern), power struggles, betrayals, rises and falls\n'
-        '- Can include: ancient rulers, medieval kings, modern presidents/dictators, revolutionaries\n'
-        '- Must NOT be any of these already used topics:\n'
-        + used_str + '\n\n'
-        'Return ONLY the topic as a single sentence (under 15 words). No explanation. No quotes. No punctuation at end.'
-    )
-
-    for attempt in range(3):
-        try:
-            topic = claude_request(prompt, max_tokens=100).strip().strip('"').strip("'")
-            # Make sure it's not too similar to existing topics
-            topic_lower = topic.lower()
-            is_duplicate = any(
-                any(word in topic_lower for word in used.lower().split()[:3])
-                for used in used_topics[-30:]
-            )
-            if not is_duplicate or attempt == 2:
-                return topic
-        except Exception as e:
-            print("   Topic generation error: " + str(e))
-            time.sleep(2)
-
-    # Last resort fallback
-    fallbacks = [
-        "Muammar Gaddafi: The colonel who ruled Libya for 42 years",
-        "Fidel Castro: The revolutionary who defied America for 50 years",
-        "Mao Zedong: The peasant who became China's most powerful ruler",
-        "Otto von Bismarck: The Iron Chancellor who unified Germany",
-        "Simón Bolívar: The liberator who freed six South American nations",
-        "Haile Selassie: The last emperor of Africa's oldest monarchy",
-        "Ho Chi Minh: The revolutionary who defeated two superpowers",
-        "Mosaddegh: The Iranian PM overthrown by CIA in 1953",
-        "Kwame Nkrumah: The visionary who led Ghana to independence",
-        "Lumumba: The Congolese leader assassinated by Western powers",
-        "Nasser: The Egyptian leader who defied Britain and Israel",
-        "Tito: The communist leader who said no to Stalin and survived",
-        "Sukarno: Indonesia's founding father and his dramatic downfall",
-        "Allende: The first democratically elected Marxist leader",
-        "Nehru: The architect of modern India and his complex legacy",
-    ]
-    available = [f for f in fallbacks if f not in used_topics]
-    return available[0] if available else fallbacks[0]
 
 def claude_request(prompt, max_tokens=3000, retries=3):
     headers = {
@@ -205,11 +201,7 @@ def fallback_shots(scene_id, topic, scene_title):
 
 def generate_script():
     print("📜 Generating script...")
-    used_topics = load_topic_history()
-    print("   Topics used so far: " + str(len(used_topics)))
-    topic = generate_fresh_topic(used_topics)
-    used_topics.append(topic)
-    save_topic_history(used_topics)
+    topic = random.choice(TOPICS)
     print("   Topic: " + topic)
 
     # Step 1: Get title, tags, thumbnail + short narrations
@@ -1070,16 +1062,6 @@ def main():
     if vid_id:
         print("SUCCESS! https://youtu.be/" + vid_id)
         print("Title: " + script["title"])
-        # Save topic history to repo so future runs avoid duplicates
-        try:
-            subprocess.run(["git", "config", "user.email", "action@github.com"], check=True)
-            subprocess.run(["git", "config", "user.name", "GitHub Action"], check=True)
-            subprocess.run(["git", "add", "topic_history.json"], check=True)
-            subprocess.run(["git", "commit", "-m", "chore: update topic history [skip ci]"], check=True)
-            subprocess.run(["git", "push"], check=True)
-            print("Topic history saved to repo.")
-        except Exception as e:
-            print("Could not save topic history: " + str(e))
     else:
         print("Video created but upload failed")
     print("="*65)
