@@ -398,17 +398,31 @@ def generate_image(prompt, filename):
 
 def fetch_pexels(prompt, filename):
     try:
-        kw = prompt.split(".")[0][:50]
+        # Use different keywords from the prompt to get variety
+        words = [w for w in prompt.replace(".", " ").replace(",", " ").split() if len(w) > 4]
+        kw = " ".join(words[:4]) if words else prompt[:50]
         h = {"Authorization": PEXELS_API_KEY}
-        r = requests.get("https://api.pexels.com/v1/search", headers=h, params={"query": kw, "per_page": 3, "orientation": "landscape"})
+        page = random.randint(1, 3)
+        r = requests.get("https://api.pexels.com/v1/search", headers=h, params={"query": kw, "per_page": 15, "orientation": "landscape", "page": page}, timeout=15)
         photos = r.json().get("photos", [])
         if photos:
-            ir = requests.get(photos[0]["src"]["large2x"], timeout=30)
+            photo = random.choice(photos)
+            ir = requests.get(photo["src"]["large2x"], timeout=30)
             with open(filename, "wb") as f:
                 f.write(ir.content)
             return True
-    except:
-        pass
+        # Fallback: try simpler keyword
+        simple_kw = words[0] if words else "history"
+        r2 = requests.get("https://api.pexels.com/v1/search", headers=h, params={"query": simple_kw, "per_page": 15, "orientation": "landscape"}, timeout=15)
+        photos2 = r2.json().get("photos", [])
+        if photos2:
+            photo = random.choice(photos2)
+            ir = requests.get(photo["src"]["large2x"], timeout=30)
+            with open(filename, "wb") as f:
+                f.write(ir.content)
+            return True
+    except Exception as e:
+        print("   Pexels error: " + str(e)[:100])
     return False
 
 REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
