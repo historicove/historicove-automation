@@ -1083,3 +1083,6 @@ def main():
     else:
         print("Video created but upload failed")
     print("="*65)
+
+if __name__ == "__main__":
+    main()
